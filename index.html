@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PGA Dealer Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0f1e38; --ink2:#16243d; --paper:#f4f1ea; --panel:#ffffff;
+    --muted:#6b7689; --line:#e6e1d6; --line2:#eceae3;
+    --accent:#c8262b; --accent-d:#a51f24;
+    --green:#1f8a4c; --green-bg:#e7f3eb;
+    --amber:#c07c00; --amber-bg:#fbf1dc;
+    --red:#b23b3b; --red-bg:#f7e8e6;
+    --pv:#2f6fb0; --ap:#1c1c1c; --mg:#3f7d44;
+    --shadow:0 1px 2px rgba(15,30,56,.06),0 8px 24px rgba(15,30,56,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--paper);color:var(--ink2);font-family:Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased;line-height:1.45}
+  h1,h2,h3,.disp{font-family:"Space Grotesk",Inter,sans-serif;letter-spacing:-.01em}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 22px}
+  .hide{display:none !important}
+
+  /* ---------- LOGIN ---------- */
+  #login{min-height:100vh;display:grid;place-items:center;padding:20px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);width:100%;max-width:400px;padding:30px 28px}
+  .card .mark{width:48px;height:48px;border-radius:11px;background:var(--accent);display:grid;place-items:center;font-family:"Space Grotesk";font-weight:700;color:#fff;font-size:18px;margin-bottom:16px}
+  .card h1{font-size:21px;margin:0 0 3px;color:var(--ink)}
+  .card .sub{font-size:13.5px;color:var(--muted);margin-bottom:22px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink2);margin-bottom:6px}
+  .field input{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-family:Inter;font-size:14px;color:var(--ink)}
+  .field input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+  .signin{width:100%;border:0;background:var(--accent);color:#fff;font-family:"Space Grotesk";font-weight:600;font-size:15px;padding:12px;border-radius:10px;cursor:pointer;margin-top:4px}
+  .signin:hover{background:var(--accent-d)}
+  .signin:disabled{opacity:.6;cursor:default}
+  .err{color:var(--accent-d);font-size:13px;margin-top:12px;min-height:18px}
+  .setup{background:var(--amber-bg);color:var(--amber);border-radius:10px;padding:12px 14px;font-size:12.5px;margin-bottom:18px;line-height:1.5}
+
+  /* ---------- HEADER ---------- */
+  header{background:var(--ink);color:#eef2f8}
+  .bar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 22px;max-width:1120px;margin:0 auto;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand .mk{width:38px;height:38px;border-radius:8px;background:var(--accent);display:grid;place-items:center;font-family:"Space Grotesk";font-weight:700;color:#fff;font-size:15px;box-shadow:inset 0 -2px 0 rgba(0,0,0,.18)}
+  .brand .t{font-family:"Space Grotesk";font-weight:600;font-size:16px;color:#fff;line-height:1.1}
+  .brand .s{font-size:11.5px;color:#9fb0c9;letter-spacing:.04em;text-transform:uppercase}
+  .who{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .who .nm{font-family:"Space Grotesk";font-weight:600;font-size:14px;color:#fff;text-align:right;line-height:1.2}
+  .who .nm small{display:block;font-family:Inter;font-weight:400;font-size:11.5px;color:#9fb0c9}
+  .logout{appearance:none;border:1px solid #2c4574;background:#16284a;color:#cdd8ea;border-radius:8px;padding:8px 13px;font-family:Inter;font-size:12.5px;font-weight:500;cursor:pointer}
+  .logout:hover{background:#1c3158}
+  .note{background:#0b1830;color:#aebfd8;font-size:12.5px}
+  .note .wrap{padding:9px 22px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .note .lock{color:#7fd3a0;font-weight:600}
+
+  /* ---------- KPIs ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:22px 0 6px}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px;box-shadow:var(--shadow)}
+  .kpi .lab{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  .kpi .val{font-family:"Space Grotesk";font-weight:700;font-size:34px;line-height:1;margin:8px 0 4px;color:var(--ink)}
+  .kpi .sub{font-size:12.5px;color:var(--muted)}
+  .kpi .sub b{color:var(--ink2)}
+  .kpi .flag{color:var(--amber);font-weight:600}
+
+  /* ---------- TABS ---------- */
+  nav.tabs{display:flex;gap:4px;margin:20px 0 14px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .tab{appearance:none;background:none;border:0;font-family:"Space Grotesk";font-weight:600;font-size:14px;color:var(--muted);padding:10px 14px 12px;cursor:pointer;border-bottom:2.5px solid transparent;margin-bottom:-1px}
+  .tab[aria-selected="true"]{color:var(--ink);border-color:var(--accent)}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:18px}
+  .phead{padding:15px 18px 13px;border-bottom:1px solid var(--line2);display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .phead h3{margin:0;font-size:15.5px;color:var(--ink)}
+  .phead .meta{font-size:12.5px;color:var(--muted)}
+  .pbody{padding:6px 6px 8px;overflow-x:auto}
+
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;padding:10px 12px;border-bottom:1px solid var(--line2);white-space:nowrap}
+  td{padding:11px 12px;border-bottom:1px solid var(--line2);color:var(--ink2)}
+  tr:last-child td{border-bottom:0}
+  tbody tr:hover{background:#faf9f5}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .mono{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12.5px}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;vertical-align:1px}
+  .dot.pv{background:var(--pv)} .dot.ap{background:var(--ap)} .dot.mg{background:var(--mg)}
+  .pill{display:inline-block;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .pill.age{background:#eef0f4;color:#54607a}
+  .pill.age.old{background:var(--amber-bg);color:var(--amber)}
+  .st{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:7px;background:#eef0f4;color:#41506e}
+  .st .d{width:7px;height:7px;border-radius:50%;background:#8a97ad}
+  .st.s-invoiced{background:var(--green-bg);color:var(--green)} .st.s-invoiced .d{background:var(--green)}
+  .st.s-goods,.st.s-process{background:#e9f0f8;color:#2f6fb0} .st.s-goods .d,.st.s-process .d{background:#2f6fb0}
+  .st.s-approved{background:#eef4ea;color:#4a7a32} .st.s-approved .d{background:#4a7a32}
+  .st.s-pending,.st.s-backpending{background:var(--amber-bg);color:var(--amber)} .st.s-pending .d,.st.s-backpending .d{background:var(--amber)}
+  .st.s-backapproved{background:#f1ecf6;color:#6f4aa0} .st.s-backapproved .d{background:#6f4aa0}
+
+  .bars{display:flex;flex-direction:column;gap:11px;padding:14px 18px 18px}
+  .barrow{display:grid;grid-template-columns:120px 1fr 34px;align-items:center;gap:12px;font-size:13px}
+  .track{height:10px;background:#eef0f4;border-radius:6px;overflow:hidden}
+  .fill{height:100%;border-radius:6px}
+  .fill.pv{background:var(--pv)} .fill.ap{background:var(--ap)} .fill.mg{background:var(--mg)}
+
+  .legend{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+  .legend .it{display:flex;align-items:center;gap:6px}
+  .swatch{width:10px;height:10px;border-radius:3px}
+  .filters{display:flex;gap:6px;flex-wrap:wrap}
+  .fbtn{appearance:none;border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:500;color:var(--ink2);cursor:pointer;font-family:Inter}
+  .fbtn[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .reqbtn{appearance:none;border:1px solid var(--accent);background:var(--accent);color:#fff;font-family:"Space Grotesk";font-weight:600;font-size:12.5px;padding:6px 13px;border-radius:8px;cursor:pointer}
+  .reqbtn:hover{background:var(--accent-d)}
+  .reqbtn:disabled{background:#eceae3;border-color:#e0ddd4;color:#a7a596;cursor:not-allowed}
+  .avcell{display:flex;align-items:center}
+  .avswatch{width:9px;height:9px;border-radius:50%;margin-right:9px;flex:none}
+  .avswatch.green{background:var(--green)} .avswatch.amber{background:var(--amber)} .avswatch.red{background:var(--red)}
+  .reqlist{padding:8px 18px 16px}
+  .reqitem{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line2);font-size:13.5px}
+  .reqitem:last-child{border-bottom:0}
+  .reqitem .check{width:20px;height:20px;border-radius:50%;background:var(--green-bg);color:var(--green);display:grid;place-items:center;font-size:12px;flex:none}
+  .empty{padding:18px;color:var(--muted);font-size:13px;text-align:center}
+
+  .scrim{position:fixed;inset:0;background:rgba(11,18,32,.55);display:none;place-items:center;padding:20px;z-index:50}
+  .scrim.on{display:grid}
+  .modal{background:#fff;border-radius:16px;max-width:440px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,.3);overflow:hidden}
+  .mhead{padding:18px 20px 14px;border-bottom:1px solid var(--line2)}
+  .mhead .k{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+  .mhead h3{margin:5px 0 0;font-size:17px;color:var(--ink)}
+  .mbody{padding:18px 20px}
+  .qrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+  .stepper{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .stepper button{width:40px;height:40px;border:0;background:#faf9f5;font-size:18px;cursor:pointer;color:var(--ink)}
+  .stepper input{width:54px;height:40px;border:0;border-left:1px solid var(--line);border-right:1px solid var(--line);text-align:center;font-family:"Space Grotesk";font-weight:600;font-size:16px;color:var(--ink)}
+  .route{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--ink2)}
+  .route .lab{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;margin-bottom:3px}
+  .mfoot{padding:14px 20px 18px;display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--line2)}
+  .btn-ghost{appearance:none;border:1px solid var(--line);background:#fff;border-radius:9px;padding:9px 16px;font-weight:600;font-size:13.5px;cursor:pointer;font-family:Inter;color:var(--ink2)}
+  .btn-primary{appearance:none;border:0;background:var(--accent);color:#fff;border-radius:9px;padding:9px 18px;font-weight:600;font-size:13.5px;cursor:pointer;font-family:"Space Grotesk"}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-size:13.5px;font-weight:500;box-shadow:0 12px 30px rgba(0,0,0,.3);transition:.25s;z-index:60;pointer-events:none}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  footer{color:var(--muted);font-size:12px;padding:8px 0 40px;text-align:center}
+  @media (max-width:760px){ .kpis{grid-template-columns:repeat(2,1fr)} .barrow{grid-template-columns:96px 1fr 28px} }
+</style>
+</head>
+<body>
+
+<!-- ============ LOGIN ============ -->
+<div id="login">
+  <div class="card">
+    <div class="mark">PGA</div>
+    <h1>Dealer Portal</h1>
+    <div class="sub">Piaggio Group Americas</div>
+    <div id="setup-warn" class="setup hide">Add your Supabase Project URL and publishable key near the top of the page code, then reload.</div>
+    <div class="field"><label>Email</label><input id="email" type="email" autocomplete="username" placeholder="you@dealership.com"></div>
+    <div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Your password"></div>
+    <button class="signin" id="signin">Sign in</button>
+    <div class="err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div id="app" class="hide">
+  <header>
+    <div class="bar">
+      <div class="brand">
+        <div class="mk">PGA</div>
+        <div><div class="t">Dealer Portal</div><div class="s">Piaggio Group Americas</div></div>
+      </div>
+      <div class="who">
+        <div class="nm" id="dealer-name">Dealer<small id="dealer-rsm">RSM</small></div>
+        <button class="logout" id="logout">Sign out</button>
+      </div>
+    </div>
+  </header>
+  <div class="note"><div class="wrap">
+    <span class="lock">&#128274; Locked to your dealership</span>
+    <span id="asof">You only see your own data.</span>
+  </div></div>
+
+  <div class="wrap">
+    <div class="kpis">
+      <div class="kpi"><div class="lab">Sold this month</div><div class="val" id="k-mtd">0</div><div class="sub" id="k-mtd-s"></div></div>
+      <div class="kpi"><div class="lab">Sold YTD</div><div class="val" id="k-ytd">0</div><div class="sub">Registrations in 2026</div></div>
+      <div class="kpi"><div class="lab">Units in stock</div><div class="val" id="k-stock">0</div><div class="sub" id="k-stock-s"></div></div>
+      <div class="kpi"><div class="lab">Open orders</div><div class="val" id="k-orders">0</div><div class="sub">In the pipeline now</div></div>
+    </div>
+
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" data-t="perf">My performance</button>
+      <button class="tab" role="tab" aria-selected="false" data-t="inv">My inventory</button>
+      <button class="tab" role="tab" aria-selected="false" data-t="ord">My orders</button>
+      <button class="tab" role="tab" aria-selected="false" data-t="av">Available to order</button>
+    </nav>
+
+    <section data-p="perf">
+      <div class="panel">
+        <div class="phead"><h3>Registrations by brand &middot; this month</h3><span class="meta" id="perf-meta"></span></div>
+        <div class="bars" id="brand-bars"></div>
+      </div>
+      <div class="panel">
+        <div class="phead"><h3>Recent registrations</h3><span class="meta">Most recent sell-out activity</span></div>
+        <div class="pbody"><table><thead><tr><th>Date</th><th>Brand</th><th>Model</th><th>Serial</th></tr></thead><tbody id="recent-rows"></tbody></table></div>
+      </div>
+    </section>
+
+    <section data-p="inv" class="hide">
+      <div class="panel">
+        <div class="phead"><h3>Units in stock</h3><span class="meta" id="inv-meta"></span></div>
+        <div class="pbody"><table><thead><tr><th>Brand</th><th>Model</th><th>Serial</th><th class="num">Days in stock</th></tr></thead><tbody id="inv-rows"></tbody></table></div>
+      </div>
+    </section>
+
+    <section data-p="ord" class="hide">
+      <div class="panel">
+        <div class="phead"><h3>Open orders &amp; status</h3><span class="meta" id="ord-meta"></span></div>
+        <div class="pbody"><table><thead><tr><th>Brand</th><th>Model / description</th><th>Order #</th><th>Status</th></tr></thead><tbody id="ord-rows"></tbody></table></div>
+      </div>
+    </section>
+
+    <section data-p="av" class="hide">
+      <div class="panel">
+        <div class="phead">
+          <h3>Available to order</h3>
+          <div class="legend">
+            <span class="it"><span class="swatch" style="background:var(--green)"></span>Available now</span>
+            <span class="it"><span class="swatch" style="background:var(--amber)"></span>Arriving next month</span>
+            <span class="it"><span class="swatch" style="background:var(--red)"></span>None &middot; backorder only</span>
+          </div>
+        </div>
+        <div class="phead" style="border-bottom:1px solid var(--line2)">
+          <div class="filters" id="brand-filters">
+            <button class="fbtn" aria-pressed="true" data-b="all">All brands</button>
+            <button class="fbtn" aria-pressed="false" data-b="Piaggio/Vespa">Piaggio / Vespa</button>
+            <button class="fbtn" aria-pressed="false" data-b="Aprilia">Aprilia</button>
+            <button class="fbtn" aria-pressed="false" data-b="Moto Guzzi">Moto Guzzi</button>
+          </div>
+          <span class="meta" id="av-meta"></span>
+        </div>
+        <div class="pbody"><table>
+          <thead><tr><th>Model</th><th class="num">In Dallas</th><th class="num">Free this month</th><th class="num">June</th><th></th></tr></thead>
+          <tbody id="av-rows"></tbody>
+        </table></div>
+      </div>
+      <div class="panel">
+        <div class="phead"><h3>Order requests this session</h3><span class="meta">Routed to your RSM</span></div>
+        <div class="reqlist" id="req-list"><div class="empty">No requests yet. Hit Request on any available model above.</div></div>
+      </div>
+    </section>
+
+    <footer>PGA Dealer Portal</footer>
+  </div>
+</div>
+
+<!-- modal -->
+<div class="scrim" id="scrim" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="mhead"><div class="k" id="m-brand">Brand</div><h3 id="m-title">Model</h3></div>
+    <div class="mbody">
+      <div class="qrow"><span style="font-weight:600">Quantity to request</span>
+        <div class="stepper"><button id="m-minus">&minus;</button><input id="m-qty" value="1"><button id="m-plus">+</button></div>
+      </div>
+      <div class="route"><div class="lab">This request routes to</div><div id="m-route">RSM</div></div>
+    </div>
+    <div class="mfoot"><button class="btn-ghost" id="m-cancel">Cancel</button><button class="btn-primary" id="m-send">Send request</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* ============================================================
+   STEP 1: paste your two Supabase values between the quotes.
+   Find them in Supabase under Settings -> API Keys (and Data API).
+   The publishable key is SAFE in the browser. Never put the secret key here.
+   ============================================================ */
+const SUPABASE_URL = "https://kyouqfockmziwvilbivb.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_o-c4qAf8-GqYEr66jSUoWw_19-cUp4N";
+/* ============================================================ */
+
+const $ = s => document.querySelector(s);
+const brandCls = b => b && b.indexOf('Piaggio') >= 0 ? 'pv' : (b && b.indexOf('Aprilia') >= 0 ? 'ap' : 'mg');
+const stCls = s => ({'Invoiced':'s-invoiced','Goods issued':'s-goods','In process':'s-process','Approved':'s-approved','Pending approval':'s-pending','Backorder approved':'s-backapproved','Backorder pending':'s-backpending'}[s] || '');
+
+let sb = null, me = {code:null, name:null, rsm:null}, store = {}, avFilter = 'all', requests = [];
+
+const keysMissing = SUPABASE_URL.indexOf('YOUR-PROJECT') >= 0 || SUPABASE_PUBLISHABLE_KEY.indexOf('YOUR_KEY') >= 0;
+if (keysMissing) {
+  $('#setup-warn').classList.remove('hide');
+} else {
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  sb.auth.getSession().then(({data}) => { if (data.session) start(); });
+}
+
+/* ---------- LOGIN ---------- */
+$('#signin').addEventListener('click', signIn);
+$('#password').addEventListener('keydown', e => { if (e.key === 'Enter') signIn(); });
+async function signIn() {
+  if (!sb) { $('#login-err').textContent = 'Add your Supabase keys in the page code first.'; return; }
+  const btn = $('#signin'); btn.disabled = true; btn.textContent = 'Signing in...';
+  $('#login-err').textContent = '';
+  const { error } = await sb.auth.signInWithPassword({ email: $('#email').value.trim(), password: $('#password').value });
+  btn.disabled = false; btn.textContent = 'Sign in';
+  if (error) { $('#login-err').textContent = error.message; return; }
+  start();
+}
+$('#logout').addEventListener('click', async () => { await sb.auth.signOut(); location.reload(); });
+
+/* ---------- LOAD + RENDER ---------- */
+async function start() {
+  $('#login').classList.add('hide'); $('#app').classList.remove('hide');
+  try {
+    const prof = await sb.from('profiles').select('dealer_code').maybeSingle();
+    me.code = prof.data ? prof.data.dealer_code : null;
+    const deal = await sb.from('dealers').select('*').maybeSingle();
+    if (deal.data) { me.name = deal.data.name; me.rsm = (deal.data.rsm || '').replace(/\s*\(.*\)/, ''); }
+    const [sales, stock, orders, avail, meta] = await Promise.all([
+      sb.from('sales').select('*'),
+      sb.from('stock').select('*'),
+      sb.from('orders').select('*'),
+      sb.from('availability').select('*'),
+      sb.from('data_meta').select('as_of').maybeSingle()
+    ]);
+    store = { sales: sales.data || [], stock: stock.data || [], orders: orders.data || [], avail: avail.data || [], asOf: meta.data ? meta.data.as_of : null };
+    render();
+  } catch (e) {
+    $('#asof').textContent = 'Could not load data: ' + e.message;
+  }
+}
+
+function monthKey(d) { return d.getFullYear() + '-' + d.getMonth(); }
+function render() {
+  $('#dealer-name').childNodes[0].nodeValue = me.name || me.code || 'Dealer';
+  $('#dealer-rsm').textContent = me.rsm ? ('RSM ' + me.rsm) : '';
+  if (store.asOf) $('#asof').textContent = 'You only see your own data. Updated ' + store.asOf + '.';
+
+  // sales math: "this month" = newest month present in the data
+  const sales = store.sales.map(r => ({ ...r, d: r.reg_date ? new Date(r.reg_date) : null })).filter(r => r.d);
+  const latest = sales.length ? sales.reduce((a, b) => a.d > b.d ? a : b).d : new Date();
+  const mtd = sales.filter(r => monthKey(r.d) === monthKey(latest));
+  $('#k-mtd').textContent = mtd.length;
+  $('#k-ytd').textContent = store.sales.length;
+  const byBrand = {};
+  mtd.forEach(r => { const b = r.brand || 'Other'; byBrand[b] = (byBrand[b] || 0) + 1; });
+  const top = Object.entries(byBrand).sort((a, b) => b[1] - a[1])[0];
+  $('#k-mtd-s').innerHTML = top ? ('Top brand <b>' + top[0] + '</b> &middot; ' + top[1] + ' units') : 'No registrations yet';
+  $('#perf-meta').textContent = mtd.length + ' units registered';
+
+  // stock
+  const aged = store.stock.filter(u => (u.age_days || 0) > 90).length;
+  $('#k-stock').textContent = store.stock.length;
+  $('#k-stock-s').innerHTML = aged > 0 ? ('<span class="flag">' + aged + ' units aged 90+ days</span>') : 'Inventory fresh';
+  $('#k-orders').textContent = store.orders.length;
+
+  // brand bars
+  const bb = $('#brand-bars'); bb.innerHTML = '';
+  const max = Math.max(1, ...Object.values(byBrand));
+  ['Piaggio/Vespa', 'Aprilia', 'Moto Guzzi'].forEach(b => {
+    const v = byBrand[b] || 0;
+    bb.insertAdjacentHTML('beforeend',
+      '<div class="barrow"><span><span class="dot ' + brandCls(b) + '"></span>' + b + '</span>' +
+      '<span class="track"><span class="fill ' + brandCls(b) + '" style="width:' + (v / max * 100) + '%"></span></span>' +
+      '<span class="num" style="font-weight:600">' + v + '</span></div>');
+  });
+
+  // recent
+  const rr = $('#recent-rows'); rr.innerHTML = '';
+  const recent = sales.slice().sort((a, b) => b.d - a.d).slice(0, 8);
+  if (!recent.length) rr.innerHTML = '<tr><td colspan="4" class="empty">No recent registrations.</td></tr>';
+  recent.forEach(r => {
+    const dt = r.d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    rr.insertAdjacentHTML('beforeend', '<tr><td class="mono">' + dt + '</td><td><span class="dot ' + brandCls(r.brand) + '"></span>' + (r.brand || '') + '</td><td>' + (r.model || '') + '</td><td class="mono">…' + (r.serial || '') + '</td></tr>');
+  });
+
+  // inventory
+  $('#inv-meta').innerHTML = store.stock.length + ' active units &middot; ' + (aged > 0 ? '<b style="color:var(--amber)">' + aged + ' aged 90+ days</b>' : 'all under 90 days');
+  const ir = $('#inv-rows'); ir.innerHTML = '';
+  const sortedStock = store.stock.slice().sort((a, b) => (b.age_days || 0) - (a.age_days || 0));
+  if (!sortedStock.length) ir.innerHTML = '<tr><td colspan="4" class="empty">No units in stock.</td></tr>';
+  sortedStock.forEach(u => {
+    const old = (u.age_days || 0) > 90 ? ' old' : '';
+    ir.insertAdjacentHTML('beforeend', '<tr><td><span class="dot ' + brandCls(u.brand) + '"></span>' + (u.brand || '') + '</td><td>' + (u.model || '') + '</td><td class="mono">…' + (u.serial || '') + '</td><td class="num"><span class="pill age' + old + '">' + (u.age_days != null ? u.age_days + 'd' : '—') + '</span></td></tr>');
+  });
+
+  // orders
+  $('#ord-meta').textContent = store.orders.length + ' orders in the pipeline';
+  const orr = $('#ord-rows'); orr.innerHTML = '';
+  if (!store.orders.length) orr.innerHTML = '<tr><td colspan="4" class="empty">No open orders.</td></tr>';
+  store.orders.forEach(o => {
+    orr.insertAdjacentHTML('beforeend', '<tr><td><span class="dot ' + brandCls(o.brand) + '"></span>' + (o.brand || '') + '</td><td>' + (o.description || '') + '</td><td class="mono">' + (o.sales_doc || '') + '</td><td><span class="st ' + stCls(o.status) + '"><span class="d"></span>' + o.status + '</span></td></tr>');
+  });
+
+  renderAvail(); renderReqs();
+}
+
+function renderAvail() {
+  const rows = store.avail.filter(a => avFilter === 'all' || a.brand === avFilter)
+                          .sort((a, b) => (b.free - a.free) || (b.june - a.june));
+  $('#av-meta').textContent = rows.length + ' models';
+  const tb = $('#av-rows'); tb.innerHTML = '';
+  if (!rows.length) tb.innerHTML = '<tr><td colspan="5" class="empty">Nothing to show.</td></tr>';
+  rows.forEach((a, i) => {
+    const can = a.color !== 'red';
+    tb.insertAdjacentHTML('beforeend',
+      '<tr><td><div class="avcell"><span class="avswatch ' + a.color + '"></span><div><div style="font-weight:500">' + (a.description || a.model || '') + '</div><div class="mono">' + (a.brand || '') + '</div></div></div></td>' +
+      '<td class="num">' + (a.dallas || 0) + '</td><td class="num" style="font-weight:600;color:' + ((a.free || 0) > 0 ? 'var(--green)' : 'var(--muted)') + '">' + (a.free || 0) + '</td>' +
+      '<td class="num">' + (a.june || '—') + '</td>' +
+      '<td class="num"><button class="reqbtn" data-i="' + i + '" ' + (can ? '' : 'disabled') + '>' + (can ? 'Request' : 'Backorder') + '</button></td></tr>');
+  });
+  tb.querySelectorAll('.reqbtn:not([disabled])').forEach(btn => btn.addEventListener('click', () => openModal(rows[+btn.dataset.i])));
+}
+
+function renderReqs() {
+  const el = $('#req-list');
+  if (!requests.length) { el.innerHTML = '<div class="empty">No requests yet. Hit Request on any available model above.</div>'; return; }
+  el.innerHTML = '';
+  requests.slice().reverse().forEach(r => {
+    el.insertAdjacentHTML('beforeend', '<div class="reqitem"><span class="check">&#10003;</span><div style="flex:1"><div style="font-weight:500">' + r.qty + ' &times; ' + r.description + '</div><div class="mono">Sent to ' + r.rsm + ' &middot; ' + r.time + '</div></div><span class="pill" style="background:var(--green-bg);color:var(--green)">Submitted</span></div>');
+  });
+}
+
+/* tabs + filters */
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', 'false'));
+  t.setAttribute('aria-selected', 'true');
+  document.querySelectorAll('section[data-p]').forEach(s => s.classList.toggle('hide', s.dataset.p !== t.dataset.t));
+}));
+document.querySelectorAll('#brand-filters .fbtn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#brand-filters .fbtn').forEach(x => x.setAttribute('aria-pressed', 'false'));
+  b.setAttribute('aria-pressed', 'true'); avFilter = b.dataset.b; renderAvail();
+}));
+
+/* modal + order request */
+let pending = null;
+const scrim = $('#scrim');
+function openModal(a) {
+  pending = a;
+  $('#m-brand').textContent = a.brand || '';
+  $('#m-title').textContent = a.description || a.model || '';
+  $('#m-qty').value = 1;
+  $('#m-route').innerHTML = '<b>' + (me.rsm || 'Your RSM') + '</b> &middot; ' + (me.name || '') + ' (' + (me.code || '') + ')';
+  scrim.classList.add('on');
+}
+function closeModal() { scrim.classList.remove('on'); pending = null; }
+$('#m-cancel').addEventListener('click', closeModal);
+scrim.addEventListener('click', e => { if (e.target === scrim) closeModal(); });
+$('#m-plus').addEventListener('click', () => { $('#m-qty').value = Math.min(99, (+$('#m-qty').value || 1) + 1); });
+$('#m-minus').addEventListener('click', () => { $('#m-qty').value = Math.max(1, (+$('#m-qty').value || 1) - 1); });
+$('#m-send').addEventListener('click', async () => {
+  const qty = Math.max(1, +$('#m-qty').value || 1);
+  const desc = pending.description || pending.model || '';
+  const { error } = await sb.from('order_requests').insert({ dealer_code: me.code, description: desc, qty: qty, rsm: me.rsm });
+  closeModal();
+  if (error) { toast('Could not send: ' + error.message); return; }
+  requests.push({ qty, description: desc, rsm: me.rsm || 'your RSM', time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) });
+  renderReqs(); toast('Order request sent to ' + (me.rsm || 'your RSM'));
+});
+
+let tt;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), 2600); }
+</script>
+</body>
+</html>
