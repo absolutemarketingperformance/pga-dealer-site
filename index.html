@@ -527,7 +527,7 @@ function renderAvail() {
     : '<tr><th>Model</th><th class="num">MSRP</th><th>Availability</th><th></th></tr>';
   const q = avSearch.toLowerCase().trim();
   const rows = store.avail
-    .filter(a => (a.free || 0) > 0 || (a.dallas || 0) > 0 || (a.june || 0) > 0)
+    .filter(a => (a.free || 0) > 0 || (a.june || 0) > 0)
     .filter(a => avFilter === 'all' || splitBrand(a.brand, a.description || a.model) === avFilter)
     .filter(a => !q || ((a.description || a.model || '').toLowerCase().indexOf(q) >= 0))
     .sort((a, b) => (b.free - a.free) || (b.june - a.june));
