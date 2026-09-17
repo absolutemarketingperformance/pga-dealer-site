@@ -61,6 +61,7 @@
   .combo-item{padding:9px 12px;font-size:13px;color:var(--ink2);cursor:pointer;border-bottom:1px solid var(--line2)}
   .combo-item:last-child{border-bottom:0}
   .combo-item:hover{background:#f2f0ea}
+  .combo-item.sel{background:#eaf1fb;font-weight:600;color:var(--ink)}
   .combo-item small{color:var(--muted);margin-left:6px;font-variant-numeric:tabular-nums}
   .who .nm{font-family:"Supermolot","Supermolot","Space Grotesk";font-weight:600;font-size:14px;color:#fff;text-align:right;line-height:1.2}
   .who .nm small{display:block;font-family:Inter;font-weight:400;font-size:11.5px;color:#9fb0c9}
@@ -409,23 +410,26 @@ async function start() {
   } catch (e) { $('#asof').textContent = 'Could not load data: ' + e.message; }
 }
 
-/* ---- searchable dealer picker ---- */
+/* ---- searchable dealer picker: search box on top, full list below ---- */
 const dInput = $('#dealer-input'), dList = $('#dealer-list'), dCombo = $('#dealer-combo');
 function renderDealerList(filter) {
   const f = (filter || '').toLowerCase().trim();
-  const items = dealersList.filter(d => !f || (d.code + ' ' + (d.name||'')).toLowerCase().indexOf(f) >= 0).slice(0, 60);
+  const items = dealersList.filter(d => !f || (d.code + ' ' + (d.name||'')).toLowerCase().indexOf(f) >= 0);
   dList.innerHTML = items.length
-    ? items.map(d => '<div class="combo-item" data-code="' + d.code + '">' + (d.name||d.code) + ' <small>' + d.code + '</small></div>').join('')
+    ? items.map(d => '<div class="combo-item' + (d.code === me.code ? ' sel' : '') + '" data-code="' + d.code + '">' + (d.name||d.code) + ' <small>' + d.code + '</small></div>').join('')
     : '<div class="combo-item" style="cursor:default;color:var(--muted)">No matches</div>';
   dList.classList.add('on');
   dList.querySelectorAll('[data-code]').forEach(el => el.addEventListener('mousedown', e => { e.preventDefault(); pickDealer(el.dataset.code); }));
 }
 function pickDealer(code) {
   const d = dealersList.find(x => x.code === code); if (!d) return;
-  dInput.value = d.name || d.code; dList.classList.remove('on');
-  setDealer(code);
+  me.code = code; me.name = d.name || d.code; me.rsm = cleanRsm(d.rsm);
+  dInput.value = '';
+  dList.classList.remove('on');
+  loadData();
 }
-dInput.addEventListener('focus', () => renderDealerList(dInput.value));
+function openDealerList() { dInput.value = ''; renderDealerList(''); dInput.focus(); }
+dInput.addEventListener('focus', openDealerList);
 dInput.addEventListener('input', () => renderDealerList(dInput.value));
 document.addEventListener('click', e => { if (!dCombo.contains(e.target)) dList.classList.remove('on'); });
 
