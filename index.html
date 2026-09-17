@@ -134,6 +134,8 @@
   .band.green{background:var(--green-bg);color:var(--green)}
   .band.yellow{background:var(--amber-bg);color:var(--amber)}
   .band.red{background:var(--red-bg);color:var(--red)}
+  .thumb[src]{cursor:zoom-in}
+  #zoom{position:fixed;pointer-events:none;z-index:200;display:none;width:280px;height:auto;border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.4);background:#fff;border:1px solid var(--line)}
   .reqlist{padding:8px 18px 16px}
   .reqitem{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line2);font-size:13.5px}
   .reqitem:last-child{border-bottom:0}
@@ -351,8 +353,8 @@ function priceLookup(desc,brand){ const d=new Set(pnorm(desc)); const br=PBMAP[b
 function fmtPrice(p){ return p ? ('$'+p.toLocaleString()) : '\u2014'; }
 
 /* ---- bike photo match ---- */
-const BIKE_FILES=["aprilia-rs-457-arsenic-yellow.jpg", "aprilia-rs-457-coral-snake-blue.jpg", "aprilia-rs-457-replica.jpg", "aprilia-rs-660-blue-marlin.jpg", "aprilia-rs-660-factory-shakedown-yellow.jpg", "aprilia-rs-660-trofeo-us-my26.jpg", "aprilia-rs-660-venom-yellow.jpg", "aprilia-rsv4-factory-shakedown-indigo.jpg", "aprilia-rsv4-poison-yellow.jpg", "aprilia-rsv4-stingray-blue.jpg", "aprilia-sr-gt-400-boulder-grey.jpg", "aprilia-sr-gt-400-dusty-grey.jpg", "aprilia-sr-gt-400-rally-replica.jpg", "aprilia-sr-gt-400-rugged-black.jpg", "aprilia-tuareg-hailstorm-white.jpg", "aprilia-tuareg-rally.jpg", "aprilia-tuareg-tornado-green.jpg", "aprilia-tuono-457-mantis-purple.jpg", "aprilia-tuono-660-factory-shakedown-yellow.jpg", "aprilia-tuono-factory-shakedown-indigo.jpg", "aprilia-tuono-v4-1100-factory-shakedown-indigo.jpg", "aprilia-v4-1100-factory-scorpion-yellow.jpg", "aprilia-v4-1100-factory-shark-grey.jpg", "guzzi-stelvio-grey-climbing-us-my27.jpg", "guzzi-stelvio-pff-grey-climbing-us-my27.jpg", "guzzi-v7-special-black-smeraldo-us-my27.jpg", "guzzi-v7-sport-grey-lario-us-my27.jpg", "guzzi-v7-stone-black-ruvido-us-my27.jpg", "guzzi-v7-stone-blue-profondo-us-my27.jpg", "mg-v7-sport-rosso-monza.jpg", "mg-v7-stone-sabbia-camo.jpg", "moto-guzzi-stelvio-verde-hiking.jpg", "moto-guzzi-v100-mandello-blu-oceano.jpg", "moto-guzzi-v100-mandello-grigio-titanio.jpg", "moto-guzzi-v100-mandello-nero-ossidiana.jpg", "moto-guzzi-v100-mandello-rosso-lava.jpg", "moto-guzzi-v100-mandello-verde-ghiaccio.jpg", "moto-guzzi-v100-mandello-wind-tunnel.jpg", "moto-guzzi-v85-travel-blu-zefiro.jpg", "moto-guzzi-v85-tt-giallo-wadi.jpg", "moto-guzzi-v85-tt-grigio-yanar-dag.jpg", "piaggio-beverly-400-special-edition.jpg", "piaggio-beverly-s-310-new-blu.jpg", "piaggio-beverly-s-400-blu-zaffiro.jpg", "piaggio-beverly-s-400-grigio-mercurio.jpg", "piaggio-beverly-s-400-nero-meteora.jpg", "piaggio-beverly-s-400-verde-jungle.jpg", "piaggio-liberty-50-black-us-my26.jpg", "piaggio-liberty-50-sport-blue-us-my26.jpg", "piaggio-mp3-530-exclusive-blu-oxygen.jpg", "piaggio-mp3-530-exclusive-grey-us-my27.jpg", "piaggio-mp3-530-exclusive-grigio-cloud.jpg", "piaggio-mp3-530-exclusive-nero-meteora.jpg", "primavera-150-bianco-innocente.jpg", "primavera-50-blue-energico.jpg", "primavera-50-verde-amabile.jpg", "primavera-base-125-blu-energico.jpg", "primavera-base-150-beige-avvolgente.jpg", "primavera-base-150-blu-energico.jpg", "primavera-base-150-verde-amabile.jpg", "primavera-tech-150-blu-energico.jpg", "primavera-tech-50-grigio-ottimista-opaco.jpg", "v9-bobber-special-edition.jpg", "vespa-946-150-snake-us-my25.jpg", "vespa-gts-125-classic-beige.jpg", "vespa-gts-310-beige-avvolgente.jpg", "vespa-gts-310-blu-us-my27.jpg", "vespa-gts-310-nero-convinto.jpg", "vespa-gts-310-verde-amabile.jpg", "vespa-gts-super-310-bianco-innocente.jpg", "vespa-gts-super-310-nero-convinto.jpg", "vespa-gts-super-310-rosso-coraggioso.jpg", "vespa-gts-supersport-310-bianco-innocente.jpg", "vespa-gts-supersport-310-blu-eclettico.jpg", "vespa-gts-supersport-310-grigio-travolgente.jpg", "vespa-gts-supersport-310-nero-convinto.jpg", "vespa-gts-supersport-310-verde-ambizioso.jpg", "vespa-gts-supertech-bianco-innocente-310.jpg", "vespa-gts-supertech-blu-energico-310.jpg", "vespa-gts-supertech-grigio-ottimista-310.jpg", "vespa-primavera-150-beige-av-us-my27.jpg", "vespa-primavera-150-officina8.jpg", "vespa-primavera-150-red.jpg", "vespa-primavera-150-tech-grigio-ottimista.jpg", "vespa-primavera-50-tech-blu-energico.jpg", "vespa-primavera-s-150-bianco.jpg", "vespa-primavera-s-150-giallo.jpg", "vespa-primavera-s-50-bianco.jpg", "vespa-primavera-s-50-giallo.jpg"];
-const BDROP=new Set(["COPY","OF","LATDX","LAT","DX","SIDE","SIDEDX","NEW","SPECIAL","EDITION","CLASSIC","OPACO","WIND","TUNNEL","PIAGGIO","VESPA","APRILIA","MOTO","GUZZI","MG","BASE","HPE","IGET","E5","ABS","US","USA","S","FACTORY","FCTY","FCT","JPG","JPEG","PNG"]);
+const BIKE_FILES=["aprilia-rs-457-arsenic-yellow.jpg", "aprilia-rs-457-coral-snake-blue.jpg", "aprilia-rs-457-replica.jpg", "aprilia-rs-660-blue-marlin.jpg", "aprilia-rs-660-factory-shakedown-yellow.jpg", "aprilia-rs-660-trofeo-us-my26.jpg", "aprilia-rs-660-venom-yellow.jpg", "aprilia-rsv4-factory-shakedown-indigo.jpg", "aprilia-rsv4-poison-yellow.jpg", "aprilia-rsv4-stingray-blue.jpg", "aprilia-sr-gt-400-boulder-grey.jpg", "aprilia-sr-gt-400-dusty-grey.jpg", "aprilia-sr-gt-400-rally-replica.jpg", "aprilia-sr-gt-400-rugged-black.jpg", "aprilia-tuareg-hailstorm-white.jpg", "aprilia-tuareg-rally.jpg", "aprilia-tuareg-tornado-green.jpg", "aprilia-tuono-457-mantis-purple.jpg", "aprilia-tuono-660-factory-shakedown-yellow.jpg", "aprilia-tuono-factory-shakedown-indigo.jpg", "aprilia-tuono-v4-1100-factory-shakedown-indigo.jpg", "aprilia-v4-1100-factory-scorpion-yellow.jpg", "aprilia-v4-1100-factory-shark-grey.jpg", "guzzi-stelvio-grey-climbing-us-my27.jpg", "guzzi-stelvio-pff-grey-climbing-us-my27.jpg", "guzzi-v7-special-black-smeraldo-us-my27.jpg", "guzzi-v7-sport-grey-lario-us-my27.jpg", "guzzi-v7-stone-black-ruvido-us-my27.jpg", "guzzi-v7-stone-blue-profondo-us-my27.jpg", "mg-v7-sport-rosso-monza.jpg", "mg-v7-stone-sabbia-camo.jpg", "moto-guzzi-stelvio-verde-hiking.jpg", "moto-guzzi-v100-mandello-blu-oceano.jpg", "moto-guzzi-v100-mandello-grigio-titanio.jpg", "moto-guzzi-v100-mandello-nero-ossidiana.jpg", "moto-guzzi-v100-mandello-rosso-lava.jpg", "moto-guzzi-v100-mandello-verde-ghiaccio.jpg", "moto-guzzi-v100-mandello-wind-tunnel.jpg", "moto-guzzi-v85-travel-blu-zefiro.jpg", "moto-guzzi-v85-tt-giallo-wadi.jpg", "moto-guzzi-v85-tt-grigio-yanar-dag.jpg", "piaggio-beverly-400-special-edition.jpg", "piaggio-beverly-s-310-new-blu.jpg", "piaggio-beverly-s-400-blu-zaffiro.jpg", "piaggio-beverly-s-400-grigio-mercurio.jpg", "piaggio-beverly-s-400-nero-meteora.jpg", "piaggio-beverly-s-400-verde-jungle.jpg", "piaggio-liberty-150-black-us-my26.jpg", "piaggio-liberty-50-black-us-my26.jpg", "piaggio-liberty-50-sport-blue-us-my26.jpg", "piaggio-liberty-50-white-us-my26.jpg", "piaggio-mp3-530-exclusive-blu-oxygen.jpg", "piaggio-mp3-530-exclusive-blue-us-my27.jpg", "piaggio-mp3-530-exclusive-grey-us-my27.jpg", "piaggio-mp3-530-exclusive-grigio-cloud.jpg", "piaggio-mp3-530-exclusive-nero-meteora.jpg", "primavera-150-bianco-innocente.jpg", "primavera-50-blue-energico.jpg", "primavera-50-verde-amabile.jpg", "primavera-base-125-blu-energico.jpg", "primavera-base-150-beige-avvolgente.jpg", "primavera-base-150-blu-energico.jpg", "primavera-base-150-verde-amabile.jpg", "primavera-tech-150-blu-energico.jpg", "primavera-tech-50-grigio-ottimista-opaco.jpg", "v9-bobber-special-edition.jpg", "vespa-946-150-snake-us-my25.jpg", "vespa-gts-125-classic-beige.jpg", "vespa-gts-310-beige-avvolgente.jpg", "vespa-gts-310-blu-us-my27.jpg", "vespa-gts-310-nero-convinto.jpg", "vespa-gts-310-supersport-verde-us-my27.jpg", "vespa-gts-310-verde-amabile.jpg", "vespa-gts-super-310-bianco-innocente.jpg", "vespa-gts-super-310-nero-convinto.jpg", "vespa-gts-super-310-rosso-coraggioso.jpg", "vespa-gts-supersport-310-bianco-innocente.jpg", "vespa-gts-supersport-310-blu-eclettico.jpg", "vespa-gts-supersport-310-grigio-travolgente.jpg", "vespa-gts-supersport-310-nero-convinto.jpg", "vespa-gts-supersport-310-verde-ambizioso.jpg", "vespa-gts-supertech-bianco-innocente-310.jpg", "vespa-gts-supertech-blu-energico-310.jpg", "vespa-gts-supertech-grigio-ottimista-310.jpg", "vespa-gtv-310-beige-avvolgente-us-my27.jpg", "vespa-primavera-150-80th-us-my27.jpg", "vespa-primavera-150-beige-av-us-my27.jpg", "vespa-primavera-150-officina8.jpg", "vespa-primavera-150-red.jpg", "vespa-primavera-150-tech-grigio-ottimista.jpg", "vespa-primavera-50-tech-blu-energico.jpg", "vespa-primavera-s-150-bianco.jpg", "vespa-primavera-s-150-giallo.jpg", "vespa-primavera-s-50-bianco.jpg", "vespa-primavera-s-50-giallo.jpg"];
+const BDROP=new Set(["COPY","OF","LATDX","LAT","DX","SIDE","SIDEDX","NEW","SPECIAL","EDITION","CLASSIC","OPACO","WIND","TUNNEL","PIAGGIO","VESPA","APRILIA","MOTO","GUZZI","MG","BASE","HPE","IGET","E5","ABS","US","USA","S","FACTORY","FCTY","FCT","JPG","JPEG","PNG","METEORA"]);
 const BCMAP={BLUE:"BLU",BLACK:"NERO",WHITE:"BIANCO",RED:"ROSSO",GREEN:"VERDE",GREY:"GRIGIO",GRAY:"GRIGIO",YELLOW:"GIALLO",BV:"BEVERLY",SABBLE:"SABBIA"};
 const BBMAP={'Piaggio/Vespa':null,'Piaggio':'PG','Vespa':'VE','Aprilia':'AP','Moto Guzzi':'MG'};
 function btoks(s){ s=(s||'').replace(/\(.*?\)/g,'').replace(/_\d{4,}/g,'').toUpperCase().replace(/-/g,' ').replace(/_/g,' ').replace(/\u00b0/g,' ').replace(/\bMY\d{2}\b/g,'').replace(/SUPER TECH/g,'SUPERTECH').replace(/SUPER SPORT/g,'SUPERSPORT').replace(/\bFCTY\b/g,'FACTORY').replace(/\bFCT\b/g,'FACTORY').replace(/OFFICINA8/g,'OFFICINA');
@@ -529,18 +531,20 @@ function availBand(free){
 }
 function renderAvail() {
   const isStaff = me.role !== 'dealer';
-  $('#av-head').innerHTML = isStaff
-    ? '<tr><th>Model</th><th class="num">MSRP</th><th class="num">In Dallas</th><th class="num">Free this month</th><th class="num">Arriving</th><th></th></tr>'
-    : '<tr><th>Model</th><th class="num">MSRP</th><th>Availability</th><th></th></tr>';
   const q = avSearch.toLowerCase().trim();
   const rows = store.avail
     .filter(a => (a.free || 0) > 0 || (a.june || 0) > 0)
     .filter(a => avFilter === 'all' || splitBrand(a.brand, a.description || a.model) === avFilter)
     .filter(a => !q || ((a.description || a.model || '').toLowerCase().indexOf(q) >= 0))
     .sort((a, b) => (b.free - a.free) || (b.june - a.june));
+  const showArr = isStaff && rows.some(a => (a.june || 0) > 0);
+  $('#av-head').innerHTML = isStaff
+    ? ('<tr><th>Model</th><th class="num">MSRP</th><th class="num">In Dallas</th><th class="num">Free this month</th>' + (showArr ? '<th class="num">Arriving</th>' : '') + '<th></th></tr>')
+    : '<tr><th>Model</th><th class="num">MSRP</th><th>Availability</th><th></th></tr>';
   $('#av-meta').textContent = rows.length + ' models';
+  const cols = isStaff ? (showArr ? 6 : 5) : 4;
   const tb = $('#av-rows'); tb.innerHTML = '';
-  if (!rows.length) tb.innerHTML = '<tr><td colspan="' + (isStaff ? 6 : 4) + '" class="empty">Nothing to show.</td></tr>';
+  if (!rows.length) tb.innerHTML = '<tr><td colspan="' + cols + '" class="empty">Nothing to show.</td></tr>';
   rows.forEach((a, i) => {
     const can = a.color !== 'red';
     const pr = priceLookup(a.description || a.model, a.brand);
@@ -549,7 +553,7 @@ function renderAvail() {
     const cellBtn = '<td class="num"><button class="reqbtn" data-i="' + i + '" ' + (can ? '' : 'disabled') + '>' + (can ? 'Request' : 'Backorder') + '</button></td>';
     let mid;
     if (isStaff) {
-      mid = '<td class="num">' + (a.dallas || 0) + '</td><td class="num" style="font-weight:600;color:' + ((a.free || 0) > 0 ? 'var(--green)' : 'var(--muted)') + '">' + (a.free || 0) + '</td><td class="num">' + (a.june || '\u2014') + '</td>';
+      mid = '<td class="num">' + (a.dallas || 0) + '</td><td class="num" style="font-weight:600;color:' + ((a.free || 0) > 0 ? 'var(--green)' : 'var(--muted)') + '">' + (a.free || 0) + '</td>' + (showArr ? ('<td class="num">' + (a.june || '\u2014') + '</td>') : '');
     } else {
       mid = '<td>' + availBand(a.free) + '</td>';
     }
@@ -634,6 +638,12 @@ $('#m-send').addEventListener('click', async () => {
 
 let tt;
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), 2600); }
+
+/* hover a photo thumbnail to see it enlarged */
+const zoom = document.createElement('img'); zoom.id = 'zoom'; document.body.appendChild(zoom);
+document.addEventListener('mouseover', e => { const t = e.target; if (t.tagName === 'IMG' && t.classList.contains('thumb') && t.getAttribute('src')) { zoom.src = t.src; zoom.style.display = 'block'; } });
+document.addEventListener('mousemove', e => { if (zoom.style.display === 'block') { let x = e.clientX + 20, y = e.clientY + 20; if (x + 300 > innerWidth) x = e.clientX - 300; if (y + 240 > innerHeight) y = innerHeight - 250; zoom.style.left = x + 'px'; zoom.style.top = y + 'px'; } });
+document.addEventListener('mouseout', e => { if (e.target.tagName === 'IMG' && e.target.classList.contains('thumb')) zoom.style.display = 'none'; });
 </script>
 </body>
 </html>
