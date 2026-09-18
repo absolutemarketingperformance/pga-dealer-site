@@ -163,6 +163,7 @@
   .ffield input:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
   .ffield input[readonly]{background:#f7f6f2;color:var(--muted)}
   .frow2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .fsel{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-family:Inter;font-size:13.5px;color:var(--ink);background:#fff;cursor:pointer}
   .qrow{display:flex;align-items:center;justify-content:space-between;margin:14px 0}
   .stepper{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden}
   .stepper button{width:38px;height:38px;border:0;background:#faf9f5;font-size:18px;cursor:pointer;color:var(--ink)}
@@ -226,6 +227,7 @@
       <button class="tab" role="tab" aria-selected="false" data-t="ord">Orders</button>
       <button class="tab" role="tab" aria-selected="false" data-t="av">Available to order</button>
       <button class="tab" role="tab" aria-selected="false" data-t="promo">Promotions</button>
+      <button class="tab hide" id="tab-admin" role="tab" aria-selected="false" data-t="admin">Admin</button>
     </nav>
     <section data-p="perf">
       <div class="panel"><div class="phead"><h3>Registrations by brand &middot; this month</h3><span class="meta" id="perf-meta"></span></div><div class="bars" id="brand-bars"></div></div>
@@ -270,6 +272,28 @@
           <span class="meta" id="promo-up-status"></span>
         </div>
         <div id="promo-list" class="reqlist"></div>
+      </div>
+    </section>
+    <section data-p="admin" class="hide">
+      <div class="panel">
+        <div class="phead"><h3>Users at <span id="au-dealer-name"></span></h3><span class="meta" id="au-meta"></span></div>
+        <div class="pbody"><table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Position</th><th>Access</th></tr></thead><tbody id="au-rows"></tbody></table></div>
+      </div>
+      <div class="panel">
+        <div class="phead"><h3>Add a user to this store</h3></div>
+        <div style="padding:16px 18px;display:grid;gap:12px;max-width:560px">
+          <div class="frow2">
+            <div class="ffield"><label>First name</label><input id="au-fn" autocomplete="off"></div>
+            <div class="ffield"><label>Last name</label><input id="au-ln" autocomplete="off"></div>
+          </div>
+          <div class="ffield"><label>Email</label><input id="au-email" type="email" autocomplete="off"></div>
+          <div class="frow2">
+            <div class="ffield"><label>Cell phone</label><input id="au-phone" type="tel" autocomplete="off"></div>
+            <div class="ffield"><label>Position</label><select id="au-pos" class="fsel"><option>Owner</option><option>General Manager</option><option>Sales Manager</option><option>Sales</option><option>Marketing</option><option>Finance</option><option>Parts / Service</option><option>Other</option></select></div>
+          </div>
+          <div><button class="btn-primary" id="au-btn">Send invite</button></div>
+          <div id="au-status" style="font-size:13px;color:var(--muted);min-height:18px"></div>
+        </div>
       </div>
     </section>
     <footer>PGA Dealer Portal</footer>
@@ -440,6 +464,7 @@ async function start() {
       const list = await sb.from('dealers').select('code,name,rsm').order('name');
       dealersList = list.data || [];
       $('#dealer-combo').classList.remove('hide');
+      document.getElementById('tab-admin').classList.remove('hide');
       $('#lock-label').textContent = me.role === 'admin' ? 'Corporate view' : ('RSM view \u00b7 ' + (me.rsm_name || ''));
       if (dealersList.length) pickDealer(dealersList[0].code);
       else { $('#asof').textContent = 'No dealers assigned to this account yet.'; }
@@ -573,6 +598,7 @@ function render() {
   orr.querySelectorAll('[data-act="del"]').forEach(b => b.addEventListener('click', () => deleteReq(b.dataset.id)));
 
   renderAvail(); renderReqs();
+  if (me.role !== 'dealer') renderAdmin();
 }
 
 function ageCls(d){ if (d == null) return ''; if (d <= 120) return 'g'; if (d <= 365) return 'y'; return 'r'; }
@@ -629,6 +655,7 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   t.setAttribute('aria-selected', 'true');
   document.querySelectorAll('section[data-p]').forEach(s => s.classList.toggle('hide', s.dataset.p !== t.dataset.t));
   if (t.dataset.t === 'promo') renderPromos();
+  if (t.dataset.t === 'admin') renderAdmin();
 }));
 
 /* ---- Promotions (corporate uploads PDFs, dealers download) ---- */
@@ -675,6 +702,43 @@ async function deletePromo(name) {
   toast('Promotion removed'); renderPromos();
 }
 document.getElementById('promo-up-btn').addEventListener('click', uploadPromo);
+
+/* ---- Admin: per-store user list + add (staff only) ---- */
+async function renderAdmin() {
+  if (me.role === 'dealer') return;
+  document.getElementById('au-dealer-name').textContent = me.name || me.code || '';
+  const rows = document.getElementById('au-rows'); rows.innerHTML = '<tr><td colspan="5" class="empty">Loading\u2026</td></tr>';
+  const { data, error } = await sb.from('profiles').select('first_name,last_name,email,phone,position,role').eq('dealer_code', me.code);
+  if (error) { rows.innerHTML = '<tr><td colspan="5" class="empty">Could not load users.</td></tr>'; return; }
+  const users = data || [];
+  document.getElementById('au-meta').textContent = users.length + ' user' + (users.length === 1 ? '' : 's');
+  if (!users.length) { rows.innerHTML = '<tr><td colspan="5" class="empty">No users yet for this store.</td></tr>'; return; }
+  rows.innerHTML = '';
+  users.forEach(u => {
+    const name = ((u.first_name || '') + ' ' + (u.last_name || '')).trim() || '\u2014';
+    const acc = (u.role || 'dealer'); const accL = acc.charAt(0).toUpperCase() + acc.slice(1);
+    rows.insertAdjacentHTML('beforeend',
+      '<tr><td style="font-weight:500;color:var(--ink)">' + name + '</td><td class="mono">' + (u.email || '\u2014') + '</td><td class="mono">' + (u.phone || '\u2014') + '</td><td>' + (u.position || '\u2014') + '</td><td><span class="pill age">' + accL + '</span></td></tr>');
+  });
+}
+async function addUser() {
+  const fn = document.getElementById('au-fn').value.trim();
+  const ln = document.getElementById('au-ln').value.trim();
+  const email = document.getElementById('au-email').value.trim();
+  const phone = document.getElementById('au-phone').value.trim();
+  const pos = document.getElementById('au-pos').value;
+  const st = document.getElementById('au-status'); st.style.color = 'var(--muted)';
+  if (!email) { st.textContent = 'Email is required.'; return; }
+  st.textContent = 'Sending invite\u2026';
+  const { data, error } = await sb.functions.invoke('create-dealer-user', { body: { email: email, dealer_code: me.code, role: 'dealer', first_name: fn, last_name: ln, phone: phone, position: pos } });
+  if (error) { st.style.color = 'var(--accent-d)'; st.textContent = 'Failed: ' + error.message + ' (is the create-dealer-user function deployed?)'; return; }
+  if (data && data.error) { st.style.color = 'var(--accent-d)'; st.textContent = 'Failed: ' + data.error; return; }
+  st.style.color = 'var(--green)'; st.textContent = 'Invite sent to ' + email + '. They set their own password from the email.';
+  document.getElementById('au-fn').value = ''; document.getElementById('au-ln').value = '';
+  document.getElementById('au-email').value = ''; document.getElementById('au-phone').value = '';
+  renderAdmin();
+}
+document.getElementById('au-btn').addEventListener('click', addUser);
 document.querySelectorAll('#brand-filters .fbtn').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('#brand-filters .fbtn').forEach(x => x.setAttribute('aria-pressed', 'false'));
   b.setAttribute('aria-pressed', 'true'); avFilter = b.dataset.b; renderAvail();
