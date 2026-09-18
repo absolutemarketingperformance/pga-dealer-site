@@ -104,6 +104,9 @@
   .pill{display:inline-block;font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
   .pill.age{background:#eef0f4;color:#54607a}
   .pill.age.old{background:var(--amber-bg);color:var(--amber)}
+  .pill.ageband.g{background:var(--green-bg);color:var(--green)}
+  .pill.ageband.y{background:var(--amber-bg);color:var(--amber)}
+  .pill.ageband.r{background:var(--red-bg);color:var(--red)}
   .st{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:4px 10px;border-radius:7px;background:#eef0f4;color:#41506e}
   .st .d{width:7px;height:7px;border-radius:50%;background:#8a97ad}
   .st.s-invoiced{background:var(--green-bg);color:var(--green)} .st.s-invoiced .d{background:var(--green)}
@@ -508,9 +511,9 @@ function render() {
   $('#k-mtd-s').innerHTML = top ? ('Top brand <b>' + top[0] + '</b> &middot; ' + top[1] + ' units') : 'No registrations yet';
   $('#perf-meta').textContent = mtd.length + ' units registered';
 
-  const aged = store.stock.filter(u => (u.age_days || 0) > 90).length;
+  const aged = store.stock.filter(u => (u.age_days || 0) > 365).length;
   $('#k-stock').textContent = store.stock.length;
-  $('#k-stock-s').innerHTML = aged > 0 ? ('<span class="flag">' + aged + ' units aged 90+ days</span>') : 'Inventory fresh';
+  $('#k-stock-s').innerHTML = aged > 0 ? ('<span class="flag">' + aged + ' units aged 365+ days</span>') : 'None over 365 days';
   $('#k-orders').textContent = store.orders.length;
 
   const bb = $('#brand-bars'); bb.innerHTML = '';
@@ -526,11 +529,22 @@ function render() {
   if (!recent.length) rr.innerHTML = '<tr><td colspan="4" class="empty">No recent registrations.</td></tr>';
   recent.forEach(r => { const dt = r.d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); rr.insertAdjacentHTML('beforeend', '<tr><td class="mono">' + dt + '</td><td>' + chipImg(r.brand, r.model) + brandLabel(r.brand, r.model) + '</td><td>' + (r.model || '') + '</td><td class="mono">\u2026' + (r.serial || '') + '</td></tr>'); });
 
-  $('#inv-meta').innerHTML = store.stock.length + ' active units &middot; ' + (aged > 0 ? '<b style="color:var(--amber)">' + aged + ' aged 90+ days</b>' : 'all under 90 days');
+  $('#inv-meta').innerHTML = store.stock.length + ' active units &middot; ' + (aged > 0 ? '<b style="color:var(--red)">' + aged + ' over 365 days</b>' : 'none over 365 days');
   const ir = $('#inv-rows'); ir.innerHTML = '';
   const ss = store.stock.slice().sort((a, b) => (b.age_days || 0) - (a.age_days || 0));
   if (!ss.length) ir.innerHTML = '<tr><td colspan="5" class="empty">No units in stock.</td></tr>';
-  ss.forEach(u => { const old = (u.age_days || 0) > 90 ? ' old' : ''; const pr = priceLookup(u.model, u.brand); ir.insertAdjacentHTML('beforeend', '<tr><td>' + chipImg(u.brand, u.model) + brandLabel(u.brand, u.model) + '</td><td>' + (u.model || '') + '</td><td class="num price' + (pr ? '' : ' none') + '">' + fmtPrice(pr) + '</td><td class="mono">\u2026' + (u.serial || '') + '</td><td class="num"><span class="pill age' + old + '">' + (u.age_days != null ? u.age_days + 'd' : '\u2014') + '</span></td></tr>'); });
+  ss.forEach(u => {
+    const text = u.description || u.model || '';
+    const pr = priceLookup(text, u.brand);
+    const d = u.age_days;
+    const myTag = u.my ? '<div class="mono">MY' + String(u.my).slice(-2) + '</div>' : '';
+    ir.insertAdjacentHTML('beforeend',
+      '<tr><td>' + chipImg(u.brand, text) + brandLabel(u.brand, text) + '</td>' +
+      '<td><div class="avcell">' + thumb(text, u.brand) + '<div><div style="font-weight:500">' + (u.model || '') + '</div>' + myTag + '</div></div></td>' +
+      '<td class="num price' + (pr ? '' : ' none') + '">' + fmtPrice(pr) + '</td>' +
+      '<td class="mono">' + (u.serial || '\u2014') + '</td>' +
+      '<td class="num"><span class="pill ageband ' + ageCls(d) + '">' + (d != null ? d + 'd' : '\u2014') + '</span></td></tr>');
+  });
 
   const staff = me.role !== 'dealer';
   const reqs = store.reqOrders || [];
@@ -558,6 +572,7 @@ function render() {
   renderAvail(); renderReqs();
 }
 
+function ageCls(d){ if (d == null) return ''; if (d <= 120) return 'g'; if (d <= 365) return 'y'; return 'r'; }
 function availBand(free){
   const f = free || 0;
   if (f >= 50) return '<span class="band green">Available</span>';
