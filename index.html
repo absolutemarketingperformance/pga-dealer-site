@@ -511,9 +511,11 @@ function render() {
   $('#k-mtd-s').innerHTML = top ? ('Top brand <b>' + top[0] + '</b> &middot; ' + top[1] + ' units') : 'No registrations yet';
   $('#perf-meta').textContent = mtd.length + ' units registered';
 
+  const green = store.stock.filter(u => (u.age_days || 0) <= 120).length;
+  const yellow = store.stock.filter(u => (u.age_days || 0) > 120 && (u.age_days || 0) <= 365).length;
   const aged = store.stock.filter(u => (u.age_days || 0) > 365).length;
   $('#k-stock').textContent = store.stock.length;
-  $('#k-stock-s').innerHTML = aged > 0 ? ('<span class="flag">' + aged + ' units aged 365+ days</span>') : 'None over 365 days';
+  $('#k-stock-s').innerHTML = '<span style="color:var(--green);font-weight:600">' + green + ' fresh</span> &middot; <span style="color:var(--amber);font-weight:600">' + yellow + ' aging</span> &middot; <span style="color:var(--red);font-weight:600">' + aged + ' 365+</span>';
   $('#k-orders').textContent = store.orders.length;
 
   const bb = $('#brand-bars'); bb.innerHTML = '';
@@ -736,13 +738,15 @@ $('#m-send').addEventListener('click', async () => {
 
 let tt;
 async function updateReqStatus(id, status){
-  const { error } = await sb.from('order_requests').update({ status: status }).eq('id', id);
+  const { data, error } = await sb.from('order_requests').update({ status: status }).eq('id', id).select();
   if (error) { toast('Could not update: ' + error.message); return; }
+  if (!data || !data.length) { toast('Change blocked \u2014 run order-actions-setup.sql in Supabase'); loadData(); return; }
   toast('Order marked ' + status); loadData();
 }
 async function deleteReq(id){
-  const { error } = await sb.from('order_requests').delete().eq('id', id);
+  const { data, error } = await sb.from('order_requests').delete().eq('id', id).select();
   if (error) { toast('Could not remove: ' + error.message); return; }
+  if (!data || !data.length) { toast('Delete blocked \u2014 run order-actions-setup.sql in Supabase'); loadData(); return; }
   toast('Order request removed'); loadData();
 }
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), 2600); }
