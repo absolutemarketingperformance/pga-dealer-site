@@ -112,6 +112,12 @@
   .st.s-pending,.st.s-backpending{background:var(--amber-bg);color:var(--amber)} .st.s-pending .d,.st.s-backpending .d{background:var(--amber)}
   .st.s-backapproved{background:#f1ecf6;color:#6f4aa0} .st.s-backapproved .d{background:#6f4aa0}
   .st.s-requested{background:#fdeee9;color:var(--accent-d)} .st.s-requested .d{background:var(--accent)}
+  .st.s-processing{background:#e9f0f8;color:#2f6fb0} .st.s-processing .d{background:#2f6fb0}
+  .st.s-delivered{background:var(--green-bg);color:var(--green)} .st.s-delivered .d{background:var(--green)}
+  .oact{display:inline-flex;gap:5px;flex-wrap:wrap}
+  .oact select{appearance:none;border:1px solid var(--line);border-radius:7px;padding:5px 24px 5px 9px;font-family:Inter;font-size:12px;color:var(--ink2);background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 4 4-4' fill='%236b7689'/%3E%3C/svg%3E") no-repeat right 8px center;cursor:pointer}
+  .oact .x{appearance:none;border:1px solid var(--line);background:#fff;border-radius:7px;padding:5px 9px;font-size:12px;color:var(--muted);cursor:pointer}
+  .oact .x:hover{border-color:var(--accent);color:var(--accent)}
   .bars{display:flex;flex-direction:column;gap:11px;padding:14px 18px 18px}
   .barrow{display:grid;grid-template-columns:132px 1fr 34px;align-items:center;gap:12px;font-size:13px}
   .barrow .blab{display:flex;align-items:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
@@ -216,6 +222,7 @@
       <button class="tab" role="tab" aria-selected="false" data-t="inv">Inventory</button>
       <button class="tab" role="tab" aria-selected="false" data-t="ord">Orders</button>
       <button class="tab" role="tab" aria-selected="false" data-t="av">Available to order</button>
+      <button class="tab" role="tab" aria-selected="false" data-t="promo">Promotions</button>
     </nav>
     <section data-p="perf">
       <div class="panel"><div class="phead"><h3>Registrations by brand &middot; this month</h3><span class="meta" id="perf-meta"></span></div><div class="bars" id="brand-bars"></div></div>
@@ -225,7 +232,7 @@
       <div class="panel"><div class="phead"><h3>Units in stock</h3><span class="meta" id="inv-meta"></span></div><div class="pbody"><table><thead><tr><th>Brand</th><th>Model</th><th class="num">MSRP</th><th>Serial</th><th class="num">Days in stock</th></tr></thead><tbody id="inv-rows"></tbody></table></div></div>
     </section>
     <section data-p="ord" class="hide">
-      <div class="panel"><div class="phead"><h3>Open orders &amp; status</h3><span class="meta" id="ord-meta"></span></div><div class="pbody"><table><thead><tr><th>Brand</th><th>Model / description</th><th>Order #</th><th>Status</th></tr></thead><tbody id="ord-rows"></tbody></table></div></div>
+      <div class="panel"><div class="phead"><h3>Open orders &amp; status</h3><span class="meta" id="ord-meta"></span></div><div class="pbody"><table><thead><tr><th>Brand</th><th>Model / description</th><th>Order #</th><th>Status</th><th></th></tr></thead><tbody id="ord-rows"></tbody></table></div></div>
     </section>
     <section data-p="av" class="hide">
       <div class="panel">
@@ -250,6 +257,17 @@
         <div class="pbody"><table><thead id="av-head"><tr><th>Model</th><th class="num">MSRP</th><th class="num">In Dallas</th><th class="num">Free this month</th><th class="num">Arriving</th><th></th></tr></thead><tbody id="av-rows"></tbody></table></div>
       </div>
       <div class="panel"><div class="phead"><h3>Order requests this session</h3><span class="meta">Routed to the RSM</span></div><div class="reqlist" id="req-list"><div class="empty">No requests yet. Hit Request on any available model above.</div></div></div>
+    </section>
+    <section data-p="promo" class="hide">
+      <div class="panel">
+        <div class="phead"><h3>Promotions</h3><span class="meta" id="promo-meta"></span></div>
+        <div id="promo-upload" class="hide" style="padding:14px 18px;border-bottom:1px solid var(--line2);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="file" id="promo-file" accept="application/pdf" style="font-family:Inter;font-size:13px">
+          <button class="btn-primary" id="promo-up-btn">Upload PDF</button>
+          <span class="meta" id="promo-up-status"></span>
+        </div>
+        <div id="promo-list" class="reqlist"></div>
+      </div>
     </section>
     <footer>PGA Dealer Portal</footer>
   </div>
@@ -319,7 +337,7 @@ function brandLabel(b, text){ return splitBrand(b, text); }
 function chipImg(b, text){ return '<span class="chip ' + brandCls(b, text) + '"></span>'; }
 function bikeFail(img,cls){ img.onerror=null; img.removeAttribute('src'); img.className='thumb chip '+cls; }
 
-const stCls = s => ({'Invoiced':'s-invoiced','Goods issued':'s-goods','In process':'s-process','Approved':'s-approved','Pending approval':'s-pending','Backorder approved':'s-backapproved','Backorder pending':'s-backpending','Requested':'s-requested'}[s] || '');
+const stCls = s => ({'Invoiced':'s-invoiced','Goods issued':'s-goods','In process':'s-process','Approved':'s-approved','Pending approval':'s-pending','Backorder approved':'s-backapproved','Backorder pending':'s-backpending','Requested':'s-requested','Processing':'s-processing','Delivered':'s-delivered'}[s] || '');
 const cleanRsm = v => (v || '').replace(/\s*\(.*\)/, '');
 
 /* ---- MSRP lookup ---- */
@@ -423,6 +441,7 @@ async function start() {
       if (dealersList.length) pickDealer(dealersList[0].code);
       else { $('#asof').textContent = 'No dealers assigned to this account yet.'; }
     }
+    renderPromos();
   } catch (e) { $('#asof').textContent = 'Could not load data: ' + e.message; }
 }
 
@@ -462,7 +481,7 @@ async function loadData() {
     sb.from('orders').select('*').eq('dealer_code', me.code),
     sb.from('availability').select('*'),
     sb.from('data_meta').select('as_of').maybeSingle(),
-    sb.from('order_requests').select('*').eq('dealer_code', me.code).eq('status', 'Requested').order('created_at', { ascending: false })
+    sb.from('order_requests').select('*').eq('dealer_code', me.code).order('created_at', { ascending: false })
   ]);
   store = { sales: sales.data || [], stock: stock.data || [], orders: orders.data || [], avail: avail.data || [],
             asOf: meta.data ? meta.data.as_of : null, reqOrders: (reqs && reqs.data) ? reqs.data : [] };
@@ -513,12 +532,28 @@ function render() {
   if (!ss.length) ir.innerHTML = '<tr><td colspan="5" class="empty">No units in stock.</td></tr>';
   ss.forEach(u => { const old = (u.age_days || 0) > 90 ? ' old' : ''; const pr = priceLookup(u.model, u.brand); ir.insertAdjacentHTML('beforeend', '<tr><td>' + chipImg(u.brand, u.model) + brandLabel(u.brand, u.model) + '</td><td>' + (u.model || '') + '</td><td class="num price' + (pr ? '' : ' none') + '">' + fmtPrice(pr) + '</td><td class="mono">\u2026' + (u.serial || '') + '</td><td class="num"><span class="pill age' + old + '">' + (u.age_days != null ? u.age_days + 'd' : '\u2014') + '</span></td></tr>'); });
 
-  const reqRows = (store.reqOrders || []).map(r => ({ brand: '', description: (r.qty > 1 ? r.qty + '\u00d7 ' : '') + r.description, sales_doc: '\u2014', status: 'Requested' }));
-  const allOrders = reqRows.concat(store.orders);
-  $('#ord-meta').textContent = store.orders.length + ' in pipeline' + (reqRows.length ? (' \u00b7 ' + reqRows.length + ' requested') : '');
+  const staff = me.role !== 'dealer';
+  const reqs = store.reqOrders || [];
+  $('#ord-meta').textContent = store.orders.length + ' in pipeline' + (reqs.length ? (' \u00b7 ' + reqs.length + ' requested') : '');
   const orr = $('#ord-rows'); orr.innerHTML = '';
-  if (!allOrders.length) orr.innerHTML = '<tr><td colspan="4" class="empty">No open orders.</td></tr>';
-  allOrders.forEach(o => { orr.insertAdjacentHTML('beforeend', '<tr><td>' + chipImg(o.brand, o.description) + brandLabel(o.brand, o.description) + '</td><td>' + (o.description || '') + '</td><td class="mono">' + (o.sales_doc || '') + '</td><td><span class="st ' + stCls(o.status) + '"><span class="d"></span>' + o.status + '</span></td></tr>'); });
+  if (!reqs.length && !store.orders.length) orr.innerHTML = '<tr><td colspan="5" class="empty">No open orders.</td></tr>';
+  reqs.forEach(r => {
+    const desc = (r.qty > 1 ? r.qty + '\u00d7 ' : '') + (r.description || '');
+    let act = '';
+    if (staff) {
+      act = '<div class="oact"><select data-act="status" data-id="' + r.id + '">' +
+        ['Requested','Processing','Delivered'].map(s => '<option ' + (r.status === s ? 'selected' : '') + '>' + s + '</option>').join('') +
+        '</select><button class="x" data-act="del" data-id="' + r.id + '">Delete</button></div>';
+    } else if (r.status !== 'Delivered') {
+      act = '<div class="oact"><button class="x" data-act="del" data-id="' + r.id + '">Cancel</button></div>';
+    }
+    orr.insertAdjacentHTML('beforeend', '<tr><td>' + chipImg('', r.description) + brandLabel('', r.description) + '</td><td>' + desc + '</td><td class="mono">\u2014</td><td><span class="st ' + stCls(r.status) + '"><span class="d"></span>' + r.status + '</span></td><td>' + act + '</td></tr>');
+  });
+  store.orders.forEach(o => {
+    orr.insertAdjacentHTML('beforeend', '<tr><td>' + chipImg(o.brand, o.description) + brandLabel(o.brand, o.description) + '</td><td>' + (o.description || '') + '</td><td class="mono">' + (o.sales_doc || '') + '</td><td><span class="st ' + stCls(o.status) + '"><span class="d"></span>' + o.status + '</span></td><td></td></tr>');
+  });
+  orr.querySelectorAll('[data-act="status"]').forEach(sel => sel.addEventListener('change', () => updateReqStatus(sel.dataset.id, sel.value)));
+  orr.querySelectorAll('[data-act="del"]').forEach(b => b.addEventListener('click', () => deleteReq(b.dataset.id)));
 
   renderAvail(); renderReqs();
 }
@@ -574,7 +609,53 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', 'false'));
   t.setAttribute('aria-selected', 'true');
   document.querySelectorAll('section[data-p]').forEach(s => s.classList.toggle('hide', s.dataset.p !== t.dataset.t));
+  if (t.dataset.t === 'promo') renderPromos();
 }));
+
+/* ---- Promotions (corporate uploads PDFs, dealers download) ---- */
+async function renderPromos() {
+  const staff = me.role !== 'dealer';
+  $('#promo-upload').classList.toggle('hide', !staff);
+  const list = $('#promo-list'); list.innerHTML = '<div class="empty">Loading&hellip;</div>';
+  const { data, error } = await sb.storage.from('promotions').list('', { limit: 200, sortBy: { column: 'created_at', order: 'desc' } });
+  if (error) { list.innerHTML = '<div class="empty">Promotions storage not set up yet.</div>'; return; }
+  const files = (data || []).filter(f => f.name && f.name.toLowerCase().endsWith('.pdf'));
+  $('#promo-meta').textContent = files.length + ' document' + (files.length === 1 ? '' : 's');
+  if (!files.length) { list.innerHTML = '<div class="empty">No promotions posted yet.</div>'; return; }
+  list.innerHTML = '';
+  files.forEach(f => {
+    const title = f.name.replace(/\.pdf$/i, '').replace(/[_-]+/g, ' ').trim();
+    const dt = f.created_at ? new Date(f.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+    const del = staff ? '<button class="x" data-del="' + encodeURIComponent(f.name) + '">Delete</button>' : '';
+    list.insertAdjacentHTML('beforeend',
+      '<div class="reqitem"><span class="chip ' + brandCls('', title) + '"></span>' +
+      '<div style="flex:1"><div style="font-weight:600;color:var(--ink)">' + title + '</div><div class="mono">Posted ' + dt + '</div></div>' +
+      '<div class="oact"><button class="btn-ghost" data-open="' + encodeURIComponent(f.name) + '">View / Download</button>' + del + '</div></div>');
+  });
+  list.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => openPromo(decodeURIComponent(b.dataset.open))));
+  list.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => deletePromo(decodeURIComponent(b.dataset.del))));
+}
+async function openPromo(name) {
+  const { data, error } = await sb.storage.from('promotions').createSignedUrl(name, 3600);
+  if (error || !data) { toast('Could not open file'); return; }
+  window.open(data.signedUrl, '_blank');
+}
+async function uploadPromo() {
+  const inp = $('#promo-file'); const file = inp.files[0];
+  const st = $('#promo-up-status');
+  if (!file) { st.textContent = 'Pick a PDF first.'; return; }
+  if (file.type !== 'application/pdf') { st.textContent = 'PDF files only.'; return; }
+  st.textContent = 'Uploading\u2026';
+  const { error } = await sb.storage.from('promotions').upload(file.name, file, { upsert: true, contentType: 'application/pdf' });
+  if (error) { st.textContent = 'Upload failed: ' + error.message; return; }
+  st.textContent = 'Uploaded.'; inp.value = ''; renderPromos();
+}
+async function deletePromo(name) {
+  const { error } = await sb.storage.from('promotions').remove([name]);
+  if (error) { toast('Could not delete: ' + error.message); return; }
+  toast('Promotion removed'); renderPromos();
+}
+document.getElementById('promo-up-btn').addEventListener('click', uploadPromo);
 document.querySelectorAll('#brand-filters .fbtn').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('#brand-filters .fbtn').forEach(x => x.setAttribute('aria-pressed', 'false'));
   b.setAttribute('aria-pressed', 'true'); avFilter = b.dataset.b; renderAvail();
@@ -637,6 +718,16 @@ $('#m-send').addEventListener('click', async () => {
 });
 
 let tt;
+async function updateReqStatus(id, status){
+  const { error } = await sb.from('order_requests').update({ status: status }).eq('id', id);
+  if (error) { toast('Could not update: ' + error.message); return; }
+  toast('Order marked ' + status); loadData();
+}
+async function deleteReq(id){
+  const { error } = await sb.from('order_requests').delete().eq('id', id);
+  if (error) { toast('Could not remove: ' + error.message); return; }
+  toast('Order request removed'); loadData();
+}
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(tt); tt = setTimeout(() => t.classList.remove('on'), 2600); }
 
 /* hover a photo thumbnail to see it enlarged */
