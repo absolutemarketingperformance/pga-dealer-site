@@ -447,7 +447,8 @@ async function start() {
   $('#login').classList.add('hide'); $('#app').classList.remove('hide');
   try {
     try { const r = await fetch('img/bikes.json'); if (r.ok) { const extra = await r.json(); const have = new Set(BIKES.map(x => x.f)); extra.forEach(e => { const f = (typeof e === 'string') ? e : (e && e.f); if (f && !have.has(f)) { BIKES.push(bikeEntry(f)); have.add(f); } }); } } catch(e){}
-    const prof = await sb.from('profiles').select('role, dealer_code, rsm_name').maybeSingle();
+    const { data: { user: meUser } } = await sb.auth.getUser();
+    const prof = await sb.from('profiles').select('role, dealer_code, rsm_name').eq('id', meUser.id).maybeSingle();
     me.role = (prof.data && prof.data.role) || 'dealer';
     me.rsm_name = prof.data ? prof.data.rsm_name : null;
 
