@@ -76,6 +76,49 @@
   footer.site a:hover{text-decoration:underline}
   footer.site .fine{color:var(--muted)}
   footer.site .sep{color:var(--line)}
+  .dkpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+  @media(max-width:820px){.dkpis{grid-template-columns:repeat(2,1fr)}}
+  .dkpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:15px 16px;position:relative}
+  .dkpi .l{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .dkpi .big{font-family:"Supermolot","Space Grotesk";font-size:29px;font-weight:700;color:var(--ink);line-height:1.05;margin:5px 0 3px}
+  .dkpi.r .big{color:var(--accent-d)} .dkpi.g .big{color:var(--green)}
+  .dkpi .sub{font-size:12px;color:var(--ink2)}
+  .dkpi .go,.dcard .dh .go{color:var(--accent);cursor:pointer;font-size:11px;text-decoration:none}
+  .dkpi .go{position:absolute;top:14px;right:14px}
+  .dkpi .go:hover,.dcard .dh .go:hover{text-decoration:underline}
+  .dgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:820px){.dgrid{grid-template-columns:1fr}}
+  .dcard{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  .dcard .dh{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--line2)}
+  .dcard .dh h4{margin:0;font-size:13.5px;font-family:"Supermolot","Space Grotesk";color:var(--ink)}
+  .dcard .db{padding:13px 16px}
+  .brow{display:flex;align-items:center;gap:10px;margin:8px 0;font-size:12.5px}
+  .brow .blabel{width:120px;color:var(--ink2);flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .brow .btrack{flex:1;background:#f0eee8;border-radius:6px;height:15px;overflow:hidden}
+  .brow .bfill{height:100%;border-radius:6px;background:var(--navy)}
+  .brow .bval{width:135px;text-align:right;color:var(--muted);flex-shrink:0;font-size:11.5px}
+  .lbcols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .lbcol h5{margin:0 0 4px;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .lbrow{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:5px 0;border-bottom:1px solid var(--line2)}
+  .lbrow .nm{color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lbrow .v{font-weight:600;color:var(--ink);flex-shrink:0}
+  .trend{display:flex;align-items:flex-end;gap:8px;height:120px}
+  .trend .tcol{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;height:100%}
+  .trend .tbar{width:62%;background:var(--navy);border-radius:5px 5px 0 0;min-height:2px}
+  .trend .tn{font-size:10.5px;color:var(--ink2);font-weight:600} .trend .tm{font-size:10px;color:var(--muted)}
+  .dnote{font-size:11px;color:var(--muted);margin-top:8px}
+  .actstats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  @media(max-width:700px){.actstats{grid-template-columns:repeat(2,1fr)}}
+  .actstat{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .actstat .n{font-family:"Supermolot","Space Grotesk";font-size:26px;font-weight:700;color:var(--ink);line-height:1}
+  .actstat .l{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+  .actstat.g .n{color:var(--green)} .actstat.y .n{color:var(--amber)} .actstat.r .n{color:var(--accent-d)}
+  .actbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 18px;border-bottom:1px solid var(--line2)}
+  .actbar input{flex:1;min-width:180px;border:1px solid var(--line);border-radius:9px;padding:8px 11px;font-family:Inter;font-size:13px;color:var(--ink)}
+  .actfilters{display:flex;gap:6px;flex-wrap:wrap}
+  .chipbtn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--ink2);border-radius:999px;padding:7px 13px;font-family:Inter;font-size:12.5px;font-weight:500;cursor:pointer}
+  .chipbtn:hover{border-color:var(--muted)}
+  .chipbtn.on{background:var(--navy);border-color:var(--navy);color:#fff}
   .logout:hover{background:#1c3158}
   .note{background:#0b1830;color:#aebfd8;font-size:12.5px}
   .note .wrap{padding:9px 22px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -245,13 +288,18 @@
       <div class="kpi"><div class="lab">Open orders</div><div class="val" id="k-orders">0</div><div class="sub">In the pipeline now</div></div>
     </div>
     <nav class="tabs" role="tablist">
+      <button class="tab hide" id="tab-dash" role="tab" aria-selected="false" data-t="dash">Dashboard</button>
       <button class="tab" role="tab" aria-selected="true" data-t="perf">Performance</button>
       <button class="tab" role="tab" aria-selected="false" data-t="inv">Inventory</button>
       <button class="tab" role="tab" aria-selected="false" data-t="ord">Orders</button>
       <button class="tab" role="tab" aria-selected="false" data-t="av">Available to order</button>
       <button class="tab" role="tab" aria-selected="false" data-t="promo">Promotions</button>
+      <button class="tab hide" id="tab-activity" role="tab" aria-selected="false" data-t="activity">Activity</button>
       <button class="tab hide" id="tab-admin" role="tab" aria-selected="false" data-t="admin">Admin</button>
     </nav>
+    <section data-p="dash" class="hide">
+      <div id="dash-root"><div class="empty">Loading dashboard&hellip;</div></div>
+    </section>
     <section data-p="perf">
       <div class="panel"><div class="phead"><h3>Registrations by brand &middot; this month</h3><span class="meta" id="perf-meta"></span></div><div class="bars" id="brand-bars"></div></div>
       <div class="panel"><div class="phead"><h3>Recent registrations</h3><span class="meta">Most recent sell-out activity</span></div><div class="pbody"><table><thead><tr><th>Date</th><th>Brand</th><th>Model</th><th>Serial</th></tr></thead><tbody id="recent-rows"></tbody></table></div></div>
@@ -295,6 +343,24 @@
           <span class="meta" id="promo-up-status"></span>
         </div>
         <div id="promo-list" class="reqlist"></div>
+      </div>
+    </section>
+    <section data-p="activity" class="hide">
+      <div class="actstats" id="act-stats"></div>
+      <div class="panel">
+        <div class="phead"><h3>Login activity</h3><span class="meta" id="act-meta"></span></div>
+        <div class="actbar">
+          <input id="act-search" placeholder="Search name, email, or dealer&hellip;" autocomplete="off">
+          <div class="actfilters" id="act-filters">
+            <button class="chipbtn on" data-f="all">All</button>
+            <button class="chipbtn" data-f="active">Active (7d)</button>
+            <button class="chipbtn" data-f="idle">Idle (8-30d)</button>
+            <button class="chipbtn" data-f="dormant">Dormant (30d+)</button>
+            <button class="chipbtn" data-f="never">Never</button>
+          </div>
+          <button class="chipbtn" id="act-sort">Longest inactive first</button>
+        </div>
+        <div class="pbody"><table><thead><tr><th>User</th><th>Email</th><th>Dealership</th><th>Role</th><th>Last login</th><th>Status</th></tr></thead><tbody id="act-rows"></tbody></table></div>
       </div>
     </section>
     <section data-p="admin" class="hide">
@@ -553,6 +619,9 @@ async function start() {
       dealersList = list.data || [];
       $('#dealer-combo').classList.remove('hide');
       document.getElementById('tab-admin').classList.remove('hide');
+      document.getElementById('tab-activity').classList.remove('hide');
+      document.getElementById('tab-dash').classList.remove('hide');
+      goTab('dash');
       $('#lock-label').textContent = me.role === 'admin' ? 'Corporate view' : ('RSM view \u00b7 ' + (me.rsm_name || ''));
       if (dealersList.length) pickDealer(dealersList[0].code);
       else { $('#asof').textContent = 'No dealers assigned to this account yet.'; }
@@ -744,6 +813,8 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   document.querySelectorAll('section[data-p]').forEach(s => s.classList.toggle('hide', s.dataset.p !== t.dataset.t));
   if (t.dataset.t === 'promo') renderPromos();
   if (t.dataset.t === 'admin') renderAdmin();
+  if (t.dataset.t === 'activity') renderActivity();
+  if (t.dataset.t === 'dash') renderDash();
 }));
 
 /* ---- Promotions (corporate uploads PDFs, dealers download) ---- */
@@ -793,6 +864,116 @@ document.getElementById('promo-up-btn').addEventListener('click', uploadPromo);
 
 /* ---- Admin: per-store user list + add (staff only) ---- */
 function fmtSeen(ts){ if(!ts) return 'Never'; const d=new Date(ts); const days=Math.floor((Date.now()-d.getTime())/864e5); if(days<=0) return 'Today'; if(days===1) return 'Yesterday'; if(days<30) return days+'d ago'; return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}); }
+
+/* ---- Dashboard: network command center (corporate + RSM) ---- */
+function goTab(t){ const b=document.querySelector('.tab[data-t="'+t+'"]'); if(b) b.click(); }
+const BRANDCLR={'Aprilia':'#e2241a','Piaggio/Vespa':'#5fa89b','Moto Guzzi':'#262626'};
+function dkpi(l,big,sub,go,cls){ return '<div class="dkpi'+(cls?(' '+cls):'')+'">'+(go?'<a class="go" data-go="'+go+'">View &rarr;</a>':'')+'<div class="l">'+l+'</div><div class="big">'+big+'</div><div class="sub">'+sub+'</div></div>'; }
+function dcard(title,body,go){ return '<div class="dcard"><div class="dh"><h4>'+title+'</h4>'+(go?'<a class="go" data-go="'+go+'">View &rarr;</a>':'')+'</div><div class="db">'+body+'</div></div>'; }
+function dbar(label,pct,val,color){ return '<div class="brow"><div class="blabel">'+label+'</div><div class="btrack"><div class="bfill" style="width:'+Math.max(2,Math.round(pct))+'%;background:'+(color||'var(--navy)')+'"></div></div><div class="bval">'+val+'</div></div>'; }
+async function renderDash(){
+  const root=$('#dash-root'); root.innerHTML='<div class="empty">Loading dashboard&hellip;</div>';
+  const { data:m, error } = await sb.rpc('dashboard_metrics');
+  if(error||!m||!m.stock){ root.innerHTML='<div class="empty">Could not load dashboard.</div>'; return; }
+  const st=m.stock, su=m.supply||[], or=m.orders||{}, sl=m.sales||{}, lb=m.leaderboard||{}, av=m.availability||[], en=m.engagement||{}, ad=m.adoption||{};
+  const N=x=>(x==null?'\u2014':Number(x).toLocaleString());
+  const money=x=>'$'+Number(x||0).toLocaleString();
+  const lastMY=(new Date().getFullYear()-1);
+  let h='<div class="dkpis">';
+  h+=dkpi('Units in stock',N(st.total),'<span style="color:var(--green)">'+N(st.green)+' fresh</span> &middot; <span style="color:var(--amber)">'+N(st.yellow)+' aging</span> &middot; <span style="color:var(--accent-d)">'+N(st.red)+' aged</span>','inv');
+  h+=dkpi('Prior-year units',N(st.prior_my_units),'MY'+lastMY+' &amp; older still on floors','inv','r');
+  if(st.value_known>0) h+=dkpi('Aged 365+ value',money(st.aged_value),'across '+N(st.red)+' units','inv','r');
+  else h+=dkpi('Aged 365+ units',N(st.red),'over 365 days &middot; $ value after next data load','inv','r');
+  h+=dkpi('Sold this month',N(sl.this_month),N(sl.ytd)+' registered YTD','perf');
+  h+=dkpi('Orders pending',N(or.pending_approval),N(or.backorder)+' units in backorder','ord');
+  h+=dkpi('Never logged in',N(ad.never),N(ad.users)+' users &middot; '+N(ad.active30)+' active in 30d','activity',(ad.never>0?'r':'g'));
+  h+='</div><div class="dgrid">';
+  (function(){ const mx=Math.max(1,...st.by_brand.map(b=>b.units)); let b=''; st.by_brand.forEach(x=>{ b+=dbar(x.brand,x.units/mx*100,N(x.units)+' &middot; avg '+x.avg_age+'d &middot; '+N(x.red)+' aged',BRANDCLR[x.brand]); }); h+=dcard('Inventory by brand',b,'inv'); })();
+  (function(){ const mx=Math.max(1,...su.map(s=>s.months||0)); let b=''; su.forEach(x=>{ b+=dbar(x.brand,(x.months||0)/mx*100,(x.months!=null?x.months+' mo':'\u2014')+' &middot; '+N(x.stock)+' units',BRANDCLR[x.brand]); }); h+=dcard('Months of supply',b+'<div class="dnote">Units in stock divided by the last 90 days of sales.</div>'); })();
+  (function(){ const bs=or.by_status||[]; const mx=Math.max(1,...bs.map(s=>s.n)); const clr=s=>/Backorder/i.test(s)?'#c2410c':(s==='Pending approval'?'#b45309':(s==='Invoiced'?'#2f8a4e':'var(--navy)')); let b=''; bs.forEach(x=>{ b+=dbar(x.status,x.n/mx*100,N(x.n),clr(x.status)); }); h+=dcard('Order pipeline ('+N(or.total)+')',b,'ord'); })();
+  (function(){ const tr=sl.trend||[]; const mx=Math.max(1,...tr.map(t=>t.n)); let c='<div class="trend">'; tr.forEach(t=>{ c+='<div class="tcol"><div class="tn">'+N(t.n)+'</div><div class="tbar" style="height:'+Math.max(2,Math.round(t.n/mx*90))+'%"></div><div class="tm">'+t.month.slice(5)+'</div></div>'; }); c+='</div>'; h+=dcard('Registrations &middot; last 6 months',c,'perf'); })();
+  (function(){ const top=lb.top||[],bot=lb.bottom||[]; const col=a=>a.map(d=>'<div class="lbrow"><span class="nm">'+d.name+'</span><span class="v">'+N(d.n)+'</span></div>').join('')||'<div class="lbrow"><span class="nm">\u2014</span></div>'; h+=dcard('Dealer leaderboard &middot; last 90 days','<div class="lbcols"><div class="lbcol"><h5>Top sellers</h5>'+col(top)+'</div><div class="lbcol"><h5>Lowest with sales</h5>'+col(bot)+'</div></div>'); })();
+  (function(){ const mx=Math.max(1,...av.map(a=>a.free)); let b=''; av.forEach(x=>{ b+=dbar(x.brand,x.free/mx*100,N(x.free)+' free',BRANDCLR[x.brand]); }); h+=dcard('Available to order by brand',b,'av'); })();
+  (function(){ const ty=(st.by_type||[]).filter(t=>t.type&&t.type!=='Unknown'); if(!ty.length) return; const mx=Math.max(1,...ty.map(t=>t.units)); let b=''; ty.forEach(x=>{ b+=dbar(x.type,x.units/mx*100,N(x.units)); }); h+=dcard('Scooter vs motorcycle',b,'inv'); })();
+  (function(){ const pct=en.dealers_total?Math.round((en.dealers_total-en.dormant_90)/en.dealers_total*100):0; h+=dcard('Network engagement','<div class="brow"><div class="blabel">Dealers selling</div><div class="btrack"><div class="bfill" style="width:'+pct+'%;background:var(--green)"></div></div><div class="bval">'+pct+'% of '+N(en.dealers_total)+'</div></div><div class="dnote">'+N(en.dormant_90)+' dealers had no registrations in the last 90 days. '+N(ad.active7)+' of '+N(ad.users)+' portal users were active this week.</div>','activity'); })();
+  h+='</div>';
+  root.innerHTML=h;
+  root.querySelectorAll('[data-go]').forEach(a=>a.addEventListener('click',()=>goTab(a.dataset.go)));
+}
+
+/* ---- Activity: last-login rollup for corporate + RSM ---- */
+let actUsers = [], actFilter = 'all', actSearch = '', actSortInactive = false;
+function actStatus(ts){
+  if (!ts) return { k:'never', label:'Never', cls:'r' };
+  const days = Math.floor((Date.now() - new Date(ts).getTime()) / 864e5);
+  if (days <= 7) return { k:'active', label:'Active', cls:'g' };
+  if (days <= 30) return { k:'idle', label:'Idle', cls:'y' };
+  return { k:'dormant', label:'Dormant', cls:'r' };
+}
+async function renderActivity(){
+  if (me.role === 'dealer') return;
+  const rows = $('#act-rows'); rows.innerHTML = '<tr><td colspan="6" class="empty">Loading\u2026</td></tr>';
+  const { data, error } = await sb.from('profiles').select('first_name,last_name,email,role,dealer_code,last_seen');
+  if (error) { rows.innerHTML = '<tr><td colspan="6" class="empty">Could not load activity.</td></tr>'; return; }
+  const nameByCode = {}; dealersList.forEach(d => { nameByCode[d.code] = d.name || d.code; });
+  const allowed = new Set(dealersList.map(d => d.code));
+  actUsers = (data || [])
+    .filter(u => (u.dealer_code && allowed.has(u.dealer_code)) || (me.role === 'admin' && !u.dealer_code))
+    .map(u => ({
+      name: ((u.first_name || '') + ' ' + (u.last_name || '')).trim() || (u.email || '\u2014'),
+      email: u.email || '\u2014',
+      dealer: u.dealer_code ? (nameByCode[u.dealer_code] || u.dealer_code) : 'Corporate',
+      role: u.role || 'dealer',
+      last_seen: u.last_seen,
+      st: actStatus(u.last_seen)
+    }));
+  drawActivity();
+}
+function drawActivity(){
+  const q = actSearch.toLowerCase().trim();
+  const list = actUsers
+    .filter(u => actFilter === 'all' || u.st.k === actFilter)
+    .filter(u => !q || (u.name + ' ' + u.email + ' ' + u.dealer).toLowerCase().indexOf(q) >= 0)
+    .sort((a, b) => {
+      const ta = a.last_seen ? new Date(a.last_seen).getTime() : 0, tb = b.last_seen ? new Date(b.last_seen).getTime() : 0;
+      return actSortInactive ? (ta - tb) : (tb - ta);
+    });
+  const tot = actUsers.length;
+  const a7 = actUsers.filter(u => u.st.k === 'active').length;
+  const a30 = actUsers.filter(u => u.st.k === 'active' || u.st.k === 'idle').length;
+  const never = actUsers.filter(u => u.st.k === 'never').length;
+  $('#act-stats').innerHTML =
+    '<div class="actstat"><div class="n">' + tot + '</div><div class="l">Total users</div></div>' +
+    '<div class="actstat g"><div class="n">' + a7 + '</div><div class="l">Active \u00b7 7 days</div></div>' +
+    '<div class="actstat y"><div class="n">' + a30 + '</div><div class="l">Active \u00b7 30 days</div></div>' +
+    '<div class="actstat r"><div class="n">' + never + '</div><div class="l">Never logged in</div></div>';
+  $('#act-meta').textContent = list.length + ' of ' + tot + ' users';
+  const rows = $('#act-rows'); rows.innerHTML = '';
+  if (!list.length) { rows.innerHTML = '<tr><td colspan="6" class="empty">No users match.</td></tr>'; return; }
+  const roleL = { admin:'Corporate', rsm:'RSM', dealer:'Dealer' };
+  list.forEach(u => {
+    rows.insertAdjacentHTML('beforeend',
+      '<tr><td style="font-weight:500;color:var(--ink)">' + u.name + '</td>' +
+      '<td class="mono">' + u.email + '</td>' +
+      '<td>' + u.dealer + '</td>' +
+      '<td>' + (roleL[u.role] || u.role) + '</td>' +
+      '<td class="mono">' + fmtSeen(u.last_seen) + '</td>' +
+      '<td><span class="pill ageband ' + u.st.cls + '">' + u.st.label + '</span></td></tr>');
+  });
+}
+$('#act-search').addEventListener('input', e => { actSearch = e.target.value; drawActivity(); });
+$('#act-filters').querySelectorAll('.chipbtn').forEach(b => b.addEventListener('click', () => {
+  actFilter = b.dataset.f;
+  $('#act-filters').querySelectorAll('.chipbtn').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); drawActivity();
+}));
+$('#act-sort').addEventListener('click', () => {
+  actSortInactive = !actSortInactive;
+  $('#act-sort').textContent = actSortInactive ? 'Most recent first' : 'Longest inactive first';
+  $('#act-sort').classList.toggle('on', actSortInactive);
+  drawActivity();
+});
+
 async function renderAdmin() {
   if (me.role === 'dealer') return;
   document.getElementById('au-dealer-name').textContent = me.name || me.code || '';
