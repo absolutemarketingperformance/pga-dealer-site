@@ -281,19 +281,19 @@
   </div></div>
 
   <div class="wrap">
-    <div class="kpis">
+    <div class="kpis hide" id="kpis">
       <div class="kpi"><div class="lab">Sold this month</div><div class="val" id="k-mtd">0</div><div class="sub" id="k-mtd-s"></div></div>
       <div class="kpi"><div class="lab">Sold YTD</div><div class="val" id="k-ytd">0</div><div class="sub">Registrations in 2026</div></div>
       <div class="kpi"><div class="lab">Units in stock</div><div class="val" id="k-stock">0</div><div class="sub" id="k-stock-s"></div></div>
       <div class="kpi"><div class="lab">Open orders</div><div class="val" id="k-orders">0</div><div class="sub">In the pipeline now</div></div>
     </div>
     <nav class="tabs" role="tablist">
-      <button class="tab hide" id="tab-dash" role="tab" aria-selected="false" data-t="dash">Dashboard</button>
-      <button class="tab" role="tab" aria-selected="true" data-t="perf">Performance</button>
-      <button class="tab" role="tab" aria-selected="false" data-t="inv">Inventory</button>
-      <button class="tab" role="tab" aria-selected="false" data-t="ord">Orders</button>
-      <button class="tab" role="tab" aria-selected="false" data-t="av">Available to order</button>
-      <button class="tab" role="tab" aria-selected="false" data-t="promo">Promotions</button>
+      <button class="tab hide" id="tab-dash" role="tab" aria-selected="false" data-t="dash">Home</button>
+      <button class="tab storetab" role="tab" aria-selected="true" data-t="perf">Performance</button>
+      <button class="tab storetab" role="tab" aria-selected="false" data-t="inv">Inventory</button>
+      <button class="tab storetab" role="tab" aria-selected="false" data-t="ord">Orders</button>
+      <button class="tab storetab" role="tab" aria-selected="false" data-t="av">Available to order</button>
+      <button class="tab storetab" role="tab" aria-selected="false" data-t="promo">Promotions</button>
       <button class="tab hide" id="tab-activity" role="tab" aria-selected="false" data-t="activity">Activity</button>
       <button class="tab hide" id="tab-admin" role="tab" aria-selected="false" data-t="admin">Admin</button>
     </nav>
@@ -613,6 +613,7 @@ async function start() {
       else { me.code = prof.data ? prof.data.dealer_code : null; me.name = me.code; }
       $('#dealer-combo').classList.add('hide');
       $('#lock-label').textContent = 'Locked to your dealership';
+      $('#kpis').classList.remove('hide');
       await loadData();
     } else {
       const list = await sb.from('dealers').select('code,name,rsm').order('name');
@@ -621,10 +622,10 @@ async function start() {
       document.getElementById('tab-admin').classList.remove('hide');
       document.getElementById('tab-activity').classList.remove('hide');
       document.getElementById('tab-dash').classList.remove('hide');
+      document.querySelectorAll('.storetab').forEach(b => b.classList.add('hide'));
+      $('#lock-label').textContent = me.role === 'admin' ? 'Corporate view \u00b7 all dealers' : ('RSM view \u00b7 ' + (me.rsm_name || 'your region'));
+      $('#dealer-name').firstChild && ($('#dealer-name').firstChild.textContent = 'Home');
       goTab('dash');
-      $('#lock-label').textContent = me.role === 'admin' ? 'Corporate view' : ('RSM view \u00b7 ' + (me.rsm_name || ''));
-      if (dealersList.length) pickDealer(dealersList[0].code);
-      else { $('#asof').textContent = 'No dealers assigned to this account yet.'; }
     }
     renderPromos();
   } catch (e) { $('#asof').textContent = 'Could not load data: ' + e.message; }
@@ -646,7 +647,10 @@ function pickDealer(code) {
   me.code = code; me.name = d.name || d.code; me.rsm = cleanRsm(d.rsm);
   dInput.value = '';
   dList.classList.remove('on');
+  document.querySelectorAll('.storetab').forEach(b => b.classList.remove('hide'));
+  $('#kpis').classList.remove('hide');
   loadData();
+  goTab('perf');
 }
 function openDealerList() { dInput.value = ''; renderDealerList(''); dInput.focus(); }
 dInput.addEventListener('focus', openDealerList);
@@ -811,6 +815,11 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   document.querySelectorAll('.tab').forEach(x => x.setAttribute('aria-selected', 'false'));
   t.setAttribute('aria-selected', 'true');
   document.querySelectorAll('section[data-p]').forEach(s => s.classList.toggle('hide', s.dataset.p !== t.dataset.t));
+  if (me.role !== 'dealer') {
+    const storeT = ['perf','inv','ord','av','promo'].indexOf(t.dataset.t) >= 0;
+    $('#kpis').classList.toggle('hide', !(storeT && me.code));
+    if (t.dataset.t === 'dash' && $('#dealer-name').firstChild) { $('#dealer-name').firstChild.textContent = 'Home'; const dr = $('#dealer-rsm'); if (dr) dr.textContent = ''; }
+  }
   if (t.dataset.t === 'promo') renderPromos();
   if (t.dataset.t === 'admin') renderAdmin();
   if (t.dataset.t === 'activity') renderActivity();
