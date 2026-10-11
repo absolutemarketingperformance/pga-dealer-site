@@ -959,7 +959,9 @@ async function renderDash(){
   h+=dkpi('Prior-year units',N(st.prior_my_units),'MY'+lastMY+' &amp; older still on floors',{k:'stock',p:'prior',t:'Prior-year units (MY'+lastMY+' and older)'},'r');
   if(st.value_known>0) h+=dkpi('Aged 365+ value',money(st.aged_value),'across '+N(st.red)+' units',{k:'stock',p:'aged',t:'Aged inventory (365+ days)'},'r');
   else h+=dkpi('Aged 365+ units',N(st.red),'over 365 days &middot; $ value after next data load',{k:'stock',p:'aged',t:'Aged inventory (365+ days)'},'r');
-  h+=dkpi('Sold this month',N(sl.this_month),N(sl.ytd)+' registered YTD',{k:'sales',p:'thismonth',t:'Registrations this month'});
+  const _pm=sl.prev_mtd||0, _dm=(sl.this_month||0)-_pm;
+  const _cmp=_pm>0?('<span style="color:'+(_dm>=0?'var(--green)':'var(--accent-d)')+'">'+(_dm>=0?'\u25B4':'\u25BE')+' '+Math.abs(Math.round(_dm/_pm*100))+'%</span> vs last month &middot; '):'';
+  h+=dkpi('Sold this month',N(sl.this_month),_cmp+N(sl.ytd)+' YTD',{k:'sales',p:'thismonth',t:'Registrations this month'});
   h+=dkpi('Orders pending',N(or.pending_approval),N(or.backorder)+' units in backorder',{k:'orders',p:'pending',t:'Orders pending approval'});
   h+=dkpi('Never logged in',N(ad.never),N(ad.users)+' users &middot; '+N(ad.active30)+' active in 30d',{go:'activity'},(ad.never>0?'r':'g'));
   h+='</div><div class="dgrid">';
@@ -984,7 +986,7 @@ async function renderDash(){
 
 /* ---- Network detail reports (with CSV export) ---- */
 const REPCOLS = {
-  stock: [['dealer','Dealer'],['dealer_code','Dealer #'],['brand','Brand'],['description','Description'],['color','Color'],['my','MY'],['msrp','MSRP','$'],['serial','VIN'],['age_days','Age','d']],
+  stock: [['dealer','Dealer'],['dealer_code','Dealer #'],['brand','Brand'],['description','Description'],['my','MY'],['msrp','MSRP','$'],['serial','VIN'],['age_days','Age','d']],
   sales: [['dealer','Dealer'],['dealer_code','Dealer #'],['brand','Brand'],['model','Model'],['serial','VIN'],['reg_date','Registered','date']],
   orders: [['dealer','Dealer'],['dealer_code','Dealer #'],['brand','Brand'],['description','Description'],['sales_doc','Order #'],['status','Status']],
   availability: [['brand','Brand'],['model','Model'],['description','Description'],['material','Material'],['dallas','In Dallas','n'],['free','Free','n'],['june','Arriving','n'],['color','Color']]
@@ -1019,8 +1021,8 @@ async function openReport(kind, preset, title){
   else if(preset==='last90'){ const cut=daysAgo(90); rows=rows.filter(r=>(r.reg_date||'')>=cut); }
   repAll=rows;
   const brands=[...new Set(rows.map(r=>r.brand).filter(Boolean))];
-  $('#rep-filters').innerHTML='<button class="brandbtn txt on" data-b="all">All</button>'+brands.map(b=>'<button class="brandbtn" data-b="'+repEsc(b)+'" title="'+repEsc(b)+'"><span class="chip '+brandCls(b,'')+'"></span></button>').join('');
-  $('#rep-filters').querySelectorAll('.brandbtn').forEach(x=>x.addEventListener('click',()=>{ repBrand=x.dataset.b; $('#rep-filters').querySelectorAll('.brandbtn').forEach(y=>y.classList.remove('on')); x.classList.add('on'); drawReport(); }));
+  $('#rep-filters').innerHTML='<button class="chipbtn on" data-b="all">All brands</button>'+brands.map(b=>'<button class="chipbtn" data-b="'+repEsc(b)+'">'+repEsc(b)+'</button>').join('');
+  $('#rep-filters').querySelectorAll('.chipbtn').forEach(x=>x.addEventListener('click',()=>{ repBrand=x.dataset.b; $('#rep-filters').querySelectorAll('.chipbtn').forEach(y=>y.classList.remove('on')); x.classList.add('on'); drawReport(); }));
   drawReport();
 }
 function drawReport(){
