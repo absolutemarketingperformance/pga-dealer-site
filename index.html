@@ -409,7 +409,7 @@
     </section>
     <footer class="site">
       <div class="flinks">
-        <a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>
+        <a href="#" id="privacy-link">Privacy Policy</a>
         <span>Support: support@us.piaggio.com</span>
       </div>
       <div class="fine">For authorized Piaggio Group Americas dealers and staff only. Confidential. Do not distribute.</div>
@@ -451,6 +451,34 @@
       <div class="err" id="ac-err"></div>
     </div>
     <div class="mfoot"><button class="btn-ghost" id="ac-cancel">Close</button><button class="btn-primary" id="ac-save">Update password</button></div>
+  </div>
+</div>
+<div class="scrim" id="privacy-scrim" role="dialog" aria-modal="true">
+  <div class="modal" style="max-width:700px">
+    <div class="mhead"><div class="k">Legal</div><h3>Privacy Policy</h3></div>
+    <div class="mbody" style="max-height:70vh;overflow:auto;font-size:13.5px;line-height:1.62;color:var(--ink2)">
+      <p style="color:var(--muted)">Last updated: October 2026</p>
+      <p>This Privacy Policy explains how Piaggio Group Americas, Inc. ("PGA," "we," "us") collects, uses, and protects information in connection with the PGA Dealer Portal at mypiaggio.com (the "Portal"), a business tool for authorized PGA dealers and staff. By using the Portal, you agree to the practices described here.</p>
+      <h4>Information we collect</h4>
+      <p>Account information (name, business email, phone, position, dealership, access level); usage information (sign-in activity and features used); business data made available in your role (inventory, sales, orders, allocations, promotions); and standard technical data needed to deliver the Portal securely.</p>
+      <h4>How we use information</h4>
+      <p>To provide, secure, and maintain the Portal and your account; to show the data relevant to your dealership and role; to communicate about your account and support; to improve the Portal; and to meet legal obligations.</p>
+      <h4>How we share information</h4>
+      <p>We do not sell your personal information. We share it only with authorized PGA staff, with trusted service providers who host and support the Portal under confidentiality obligations, and where required by law.</p>
+      <h4>Confidentiality of dealer data</h4>
+      <p>Information in the Portal, including allocations, pricing, availability, and inventory, is confidential and provided for authorized PGA dealers and staff only. You agree not to distribute it outside your dealership or authorized use.</p>
+      <h4>Cookies</h4>
+      <p>The Portal uses only the cookies and local storage needed to keep you signed in and make the Portal work. It is not used to serve advertising.</p>
+      <h4>Data retention and security</h4>
+      <p>We keep information for as long as your account is active and as needed to provide the Portal and meet legal requirements. We use access controls that limit each user to the data appropriate for their role, and administrative, technical, and organizational measures to protect information.</p>
+      <h4>Your rights</h4>
+      <p>Depending on your location, you may have the right to access, correct, update, or request deletion of your personal information. Contact support@us.piaggio.com and we will respond consistent with applicable law.</p>
+      <h4>Children</h4>
+      <p>The Portal is a business tool and is not directed to children. We do not knowingly collect information from anyone under 16.</p>
+      <h4>Changes and contact</h4>
+      <p>We may update this policy and will revise the date above. Questions? Email support@us.piaggio.com.</p>
+    </div>
+    <div class="mfoot"><button class="btn-primary" id="privacy-close">Close</button></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -595,6 +623,9 @@ async function signIn() {
 }
 $('#logout').addEventListener('click', async () => { await sb.auth.signOut(); location.reload(); });
 $('#home-btn').addEventListener('click', () => goTab('dash'));
+$('#privacy-link').addEventListener('click', e => { e.preventDefault(); $('#privacy-scrim').classList.add('on'); });
+$('#privacy-close').addEventListener('click', () => $('#privacy-scrim').classList.remove('on'));
+$('#privacy-scrim').addEventListener('click', e => { if (e.target === $('#privacy-scrim')) $('#privacy-scrim').classList.remove('on'); });
 
 /* Account / change password */
 const acctScrim = $('#acct-scrim');
@@ -945,9 +976,9 @@ async function renderDash(){
 
 /* ---- Network detail reports (with CSV export) ---- */
 const REPCOLS = {
-  stock: [['dealer','Dealer'],['rsm','RSM'],['brand','Brand'],['model','Model'],['description','Description'],['color','Color'],['my','MY'],['type','Type'],['msrp','MSRP','$'],['serial','VIN'],['age_days','Age','d']],
-  sales: [['dealer','Dealer'],['rsm','RSM'],['brand','Brand'],['model','Model'],['serial','VIN'],['reg_date','Registered','date']],
-  orders: [['dealer','Dealer'],['rsm','RSM'],['brand','Brand'],['description','Description'],['sales_doc','Order #'],['status','Status']],
+  stock: [['dealer','Dealer'],['dealer_code','Dealer #'],['brand','Brand'],['description','Description'],['color','Color'],['my','MY'],['msrp','MSRP','$'],['serial','VIN'],['age_days','Age','d']],
+  sales: [['dealer','Dealer'],['dealer_code','Dealer #'],['brand','Brand'],['model','Model'],['serial','VIN'],['reg_date','Registered','date']],
+  orders: [['dealer','Dealer'],['dealer_code','Dealer #'],['brand','Brand'],['description','Description'],['sales_doc','Order #'],['status','Status']],
   availability: [['brand','Brand'],['model','Model'],['description','Description'],['material','Material'],['dallas','In Dallas','n'],['free','Free','n'],['june','Arriving','n'],['color','Color']]
 };
 let repKind='', repAll=[], repFiltered=[], repCols=[], repSearch='', repBrand='all';
