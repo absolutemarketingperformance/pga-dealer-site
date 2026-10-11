@@ -107,6 +107,14 @@
   .trend .tbar{width:62%;background:var(--navy);border-radius:5px 5px 0 0;min-height:2px}
   .trend .tn{font-size:10.5px;color:var(--ink2);font-weight:600} .trend .tm{font-size:10px;color:var(--muted)}
   .dnote{font-size:11px;color:var(--muted);margin-top:8px}
+  .trend2{display:flex;align-items:flex-end;gap:10px;height:150px;padding-top:6px}
+  .tcol2{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;height:100%}
+  .tnum{font-size:11px;color:var(--ink2);font-weight:600}
+  .tstack{width:70%;display:flex;flex-direction:column;border-radius:5px 5px 0 0;overflow:hidden;min-height:3px}
+  .tmon{font-size:11px;color:var(--muted)}
+  .tlegend{display:flex;gap:16px;justify-content:center;margin-top:12px;font-size:11.5px;color:var(--ink2);flex-wrap:wrap}
+  .tlegend span{display:inline-flex;align-items:center;gap:6px}
+  .tlegend i{width:11px;height:11px;border-radius:3px;display:inline-block}
   .actstats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
   @media(max-width:700px){.actstats{grid-template-columns:repeat(2,1fr)}}
   .actstat{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px}
@@ -270,6 +278,7 @@
       <div class="who">
         <div id="dealer-combo" class="combo hide"><input id="dealer-input" placeholder="Search dealer&hellip;" autocomplete="off"><div id="dealer-list" class="combo-list"></div></div>
         <div class="nm" id="dealer-name">Dealer<small id="dealer-rsm"></small></div>
+        <button class="acct hide" id="home-btn">&#8962; Home</button>
         <button class="acct" id="acct">Account</button>
         <button class="logout" id="logout">Sign out</button>
       </div>
@@ -572,6 +581,7 @@ async function signIn() {
   start();
 }
 $('#logout').addEventListener('click', async () => { await sb.auth.signOut(); location.reload(); });
+$('#home-btn').addEventListener('click', () => goTab('dash'));
 
 /* Account / change password */
 const acctScrim = $('#acct-scrim');
@@ -623,6 +633,7 @@ async function start() {
       document.getElementById('tab-activity').classList.remove('hide');
       document.getElementById('tab-dash').classList.remove('hide');
       document.querySelectorAll('.storetab').forEach(b => b.classList.add('hide'));
+      document.getElementById('home-btn').classList.remove('hide');
       $('#lock-label').textContent = me.role === 'admin' ? 'Corporate view \u00b7 all dealers' : ('RSM view \u00b7 ' + (me.rsm_name || 'your region'));
       $('#dealer-name').firstChild && ($('#dealer-name').firstChild.textContent = 'Home');
       goTab('dash');
@@ -900,10 +911,15 @@ async function renderDash(){
   (function(){ const mx=Math.max(1,...st.by_brand.map(b=>b.units)); let b=''; st.by_brand.forEach(x=>{ b+=dbar(x.brand,x.units/mx*100,N(x.units)+' &middot; avg '+x.avg_age+'d &middot; '+N(x.red)+' aged',BRANDCLR[x.brand]); }); h+=dcard('Inventory by brand',b,'inv'); })();
   (function(){ const mx=Math.max(1,...su.map(s=>s.months||0)); let b=''; su.forEach(x=>{ b+=dbar(x.brand,(x.months||0)/mx*100,(x.months!=null?x.months+' mo':'\u2014')+' &middot; '+N(x.stock)+' units',BRANDCLR[x.brand]); }); h+=dcard('Months of supply',b+'<div class="dnote">Units in stock divided by the last 90 days of sales.</div>'); })();
   (function(){ const bs=or.by_status||[]; const mx=Math.max(1,...bs.map(s=>s.n)); const clr=s=>/Backorder/i.test(s)?'#c2410c':(s==='Pending approval'?'#b45309':(s==='Invoiced'?'#2f8a4e':'var(--navy)')); let b=''; bs.forEach(x=>{ b+=dbar(x.status,x.n/mx*100,N(x.n),clr(x.status)); }); h+=dcard('Order pipeline ('+N(or.total)+')',b,'ord'); })();
-  (function(){ const tr=sl.trend||[]; const mx=Math.max(1,...tr.map(t=>t.n)); let c='<div class="trend">'; tr.forEach(t=>{ c+='<div class="tcol"><div class="tn">'+N(t.n)+'</div><div class="tbar" style="height:'+Math.max(2,Math.round(t.n/mx*90))+'%"></div><div class="tm">'+t.month.slice(5)+'</div></div>'; }); c+='</div>'; h+=dcard('Registrations &middot; last 6 months',c,'perf'); })();
+  (function(){ const tr=sl.trend||[]; const tot=t=>(t.ap||0)+(t.pv||0)+(t.mg||0); const mx=Math.max(1,...tr.map(tot));
+    const mn=ym=>{const p=ym.split('-');return new Date(+p[0],+p[1]-1,1).toLocaleString('en-US',{month:'short'});};
+    const seg=(v,tt,clr)=> v>0?('<div class="seg" style="height:'+(v/(tt||1)*100)+'%;background:'+clr+'"></div>'):'';
+    let c='<div class="trend2">';
+    tr.forEach(t=>{ const tt=tot(t); c+='<div class="tcol2"><div class="tnum">'+N(tt)+'</div><div class="tstack" style="height:'+Math.max(3,Math.round(tt/mx*120))+'px">'+seg(t.ap,tt,'#e2241a')+seg(t.pv,tt,'#5fa89b')+seg(t.mg,tt,'#262626')+'</div><div class="tmon">'+mn(t.month)+'</div></div>'; });
+    c+='</div><div class="tlegend"><span><i style="background:#e2241a"></i>Aprilia</span><span><i style="background:#5fa89b"></i>Piaggio/Vespa</span><span><i style="background:#262626"></i>Moto Guzzi</span></div>';
+    h+=dcard('Registrations by brand &middot; last 6 months',c,'perf'); })();
   (function(){ const top=lb.top||[],bot=lb.bottom||[]; const col=a=>a.map(d=>'<div class="lbrow"><span class="nm">'+d.name+'</span><span class="v">'+N(d.n)+'</span></div>').join('')||'<div class="lbrow"><span class="nm">\u2014</span></div>'; h+=dcard('Dealer leaderboard &middot; last 90 days','<div class="lbcols"><div class="lbcol"><h5>Top sellers</h5>'+col(top)+'</div><div class="lbcol"><h5>Lowest with sales</h5>'+col(bot)+'</div></div>'); })();
   (function(){ const mx=Math.max(1,...av.map(a=>a.free)); let b=''; av.forEach(x=>{ b+=dbar(x.brand,x.free/mx*100,N(x.free)+' free',BRANDCLR[x.brand]); }); h+=dcard('Available to order by brand',b,'av'); })();
-  (function(){ const ty=(st.by_type||[]).filter(t=>t.type&&t.type!=='Unknown'); if(!ty.length) return; const mx=Math.max(1,...ty.map(t=>t.units)); let b=''; ty.forEach(x=>{ b+=dbar(x.type,x.units/mx*100,N(x.units)); }); h+=dcard('Scooter vs motorcycle',b,'inv'); })();
   (function(){ const pct=en.dealers_total?Math.round((en.dealers_total-en.dormant_90)/en.dealers_total*100):0; h+=dcard('Network engagement','<div class="brow"><div class="blabel">Dealers selling</div><div class="btrack"><div class="bfill" style="width:'+pct+'%;background:var(--green)"></div></div><div class="bval">'+pct+'% of '+N(en.dealers_total)+'</div></div><div class="dnote">'+N(en.dormant_90)+' dealers had no registrations in the last 90 days. '+N(ad.active7)+' of '+N(ad.users)+' portal users were active this week.</div>','activity'); })();
   h+='</div>';
   root.innerHTML=h;
