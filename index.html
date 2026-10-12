@@ -313,6 +313,7 @@
       <button class="tab storetab" role="tab" aria-selected="false" data-t="ord">Orders</button>
       <button class="tab storetab" role="tab" aria-selected="false" data-t="av">Available to order</button>
       <button class="tab storetab" role="tab" aria-selected="false" data-t="promo">Promotions</button>
+      <button class="tab storetab hide" id="tab-online" role="tab" aria-selected="false" data-t="online">Online</button>
       <button class="tab hide" id="tab-activity" role="tab" aria-selected="false" data-t="activity">Activity</button>
       <button class="tab hide" id="tab-admin" role="tab" aria-selected="false" data-t="admin">Admin</button>
     </nav>
@@ -324,7 +325,7 @@
       <div class="panel"><div class="phead"><h3>Recent registrations</h3><span class="meta">Most recent sell-out activity</span></div><div class="pbody"><table><thead><tr><th>Date</th><th>Brand</th><th>Model</th><th>Serial</th></tr></thead><tbody id="recent-rows"></tbody></table></div></div>
     </section>
     <section data-p="inv" class="hide">
-      <div class="panel"><div class="phead"><h3>Units in stock</h3><span class="meta" id="inv-meta"></span></div><div class="pbody"><table><thead><tr><th>Brand</th><th>Model</th><th>Color</th><th class="num">MSRP</th><th>Serial</th><th class="num">Days in stock</th></tr></thead><tbody id="inv-rows"></tbody></table></div></div>
+      <div class="panel"><div class="phead"><h3>Units in stock</h3><span class="meta" id="inv-meta"></span></div><div class="pbody"><table><thead><tr><th>Brand</th><th>Model</th><th>Color</th><th class="num">MSRP</th><th>Serial</th><th class="num">Days in stock</th><th></th></tr></thead><tbody id="inv-rows"></tbody></table></div></div>
     </section>
     <section data-p="ord" class="hide">
       <div class="panel"><div class="phead"><h3>Open orders &amp; status</h3><span class="meta" id="ord-meta"></span></div><div class="pbody"><table><thead><tr><th>Brand</th><th>Model / description</th><th>Order #</th><th>Status</th><th></th></tr></thead><tbody id="ord-rows"></tbody></table></div></div>
@@ -402,6 +403,17 @@
           <div><button class="btn-primary" id="au-btn">Send invite</button></div>
           <div id="au-status" style="font-size:13px;color:var(--muted);min-height:18px"></div>
         </div>
+      </div>
+    </section>
+    <section data-p="online" class="hide">
+      <div class="panel">
+        <div class="phead"><h3>Online merchandising <span id="on-dealer" style="color:var(--muted);font-weight:400;font-size:13px"></span></h3><span class="meta" id="on-meta"></span></div>
+        <div class="actbar">
+          <input id="on-url" placeholder="Paste this dealer's MotoHunt feed URL&hellip;" autocomplete="off" style="flex:1;min-width:240px">
+          <button class="chipbtn" id="on-save">Save</button>
+          <button class="chipbtn" id="on-refresh">Refresh</button>
+        </div>
+        <div id="on-body" style="padding:14px 16px"><div class="empty">Paste the feed URL above and hit Save.</div></div>
       </div>
     </section>
     <section data-p="report" id="sec-report" class="hide">
@@ -784,11 +796,12 @@ function render() {
   $('#inv-meta').innerHTML = store.stock.length + ' active units &middot; ' + (aged > 0 ? '<b style="color:var(--red)">' + aged + ' over 365 days</b>' : 'none over 365 days');
   const ir = $('#inv-rows'); ir.innerHTML = '';
   const ss = store.stock.slice().sort((a, b) => (b.age_days || 0) - (a.age_days || 0));
-  if (!ss.length) ir.innerHTML = '<tr><td colspan="6" class="empty">No units in stock.</td></tr>';
+  if (!ss.length) ir.innerHTML = '<tr><td colspan="7" class="empty">No units in stock.</td></tr>';
   ss.forEach(u => {
     const text = u.description || u.model || '';
     const pr = priceLookup(text, u.brand);
     const d = u.age_days;
+    const onl = onlineUrl(u.serial);
     const myTag = u.my ? '<div class="mono">MY' + String(u.my).slice(-2) + '</div>' : '';
     ir.insertAdjacentHTML('beforeend',
       '<tr><td>' + chipImg(u.brand, text) + brandLabel(u.brand, text) + '</td>' +
@@ -796,7 +809,7 @@ function render() {
       '<td>' + colorText(u.color) + '</td>' +
       '<td class="num price' + (pr ? '' : ' none') + '">' + fmtPrice(pr) + '</td>' +
       '<td class="mono">' + (u.serial || '\u2014') + '</td>' +
-      '<td class="num"><span class="pill ageband ' + ageCls(d) + '">' + (d != null ? d + 'd' : '\u2014') + '</span></td></tr>');
+      '<td class="num"><span class="pill ageband ' + ageCls(d) + '">' + (d != null ? d + 'd' : '\u2014') + '</span></td>' + '<td class="num">' + (onl ? '<a class="go" href="' + onl + '" target="_blank" rel="noopener">Online &rarr;</a>' : '') + '</td></tr>');
   });
 
   const staff = me.role !== 'dealer';
@@ -823,7 +836,7 @@ function render() {
   orr.querySelectorAll('[data-act="del"]').forEach(b => b.addEventListener('click', () => deleteReq(b.dataset.id)));
 
   renderAvail(); renderReqs();
-  if (me.role !== 'dealer') renderAdmin();
+  if (me.role !== 'dealer') { renderAdmin(); loadOnlineMap(); }
 }
 
 function ageCls(d){ if (d == null) return ''; if (d <= 120) return 'g'; if (d <= 365) return 'y'; return 'r'; }
@@ -887,6 +900,7 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   if (t.dataset.t === 'promo') renderPromos();
   if (t.dataset.t === 'admin') renderAdmin();
   if (t.dataset.t === 'activity') renderActivity();
+  if (t.dataset.t === 'online') renderOnline();
   if (t.dataset.t === 'dash') renderDash();
 }));
 
@@ -983,6 +997,67 @@ async function renderDash(){
   root.querySelectorAll('[data-rk]').forEach(a=>a.addEventListener('click',()=>openReport(a.dataset.rk,a.dataset.rp||null,a.dataset.rt)));
   root.querySelectorAll('[data-go]').forEach(a=>a.addEventListener('click',()=>goTab(a.dataset.go)));
 }
+
+/* ---- Online merchandising (MotoHunt feed vs PGA stock) ---- */
+let onlineMap = {}, onlineMapDealer = null;
+function normV(v){ return (v || '').toString().trim().toUpperCase().replace(/^US-/, ''); }
+function onlineUrl(serial){ return onlineMap[normV(serial)] || null; }
+async function loadOnlineMap(){
+  if (me.role === 'dealer' || !me.code) return;
+  if (onlineMapDealer === me.code) return;
+  onlineMapDealer = me.code; onlineMap = {};
+  try {
+    const { data } = await sb.functions.invoke('merchandising', { body: { dealer_code: me.code } });
+    if (data && data.online) { data.online.forEach(o => { if (o.url && o.vin) onlineMap[o.vin] = o.url; }); }
+  } catch(e){}
+  if (Object.keys(onlineMap).length && store && store.stock) render();
+}
+async function renderOnline(){
+  if (me.role === 'dealer') return;
+  $('#on-dealer').textContent = me.name ? ('\u00b7 ' + me.name) : '';
+  const body = $('#on-body');
+  const { data: df } = await sb.from('dealer_feeds').select('feed_url').eq('dealer_code', me.code).maybeSingle();
+  $('#on-url').value = (df && df.feed_url) || '';
+  $('#on-meta').textContent = '';
+  if (!df || !df.feed_url) { body.innerHTML = '<div class="empty">No feed set for this dealer. Paste their MotoHunt feed URL above and hit Save. Not every dealer has one.</div>'; return; }
+  body.innerHTML = '<div class="empty">Loading online inventory&hellip;</div>';
+  const { data, error } = await sb.functions.invoke('merchandising', { body: { dealer_code: me.code } });
+  if (error) { body.innerHTML = '<div class="empty">Could not load: ' + error.message + '</div>'; return; }
+  if (data && data.error) { body.innerHTML = '<div class="empty">' + data.error + '</div>'; return; }
+  if (!data || !data.has_feed) { body.innerHTML = '<div class="empty">No feed set.</div>'; return; }
+  drawOnline(data);
+}
+function drawOnline(d){
+  onlineMapDealer = me.code; onlineMap = {};
+  (d.online || []).forEach(o => { if (o.url && o.vin) onlineMap[o.vin] = o.url; });
+  const N = x => Number(x||0).toLocaleString();
+  const money = x => x==null ? '\u2014' : '$'+Number(x).toLocaleString();
+  $('#on-meta').textContent = d.online_count + ' PGA units online \u00b7 ' + d.stock_count + ' in stock';
+  let h = '<div class="dkpis" style="margin:4px 0 14px">';
+  h += '<div class="dkpi ' + (d.coverage_pct<100?'r':'g') + '"><div class="l">Online coverage</div><div class="big">' + d.coverage_pct + '%</div><div class="sub">' + d.matched_count + ' of ' + d.stock_count + ' units listed</div></div>';
+  h += '<div class="dkpi"><div class="l">Avg photos</div><div class="big">' + d.avg_photos + '</div><div class="sub">' + N(d.low_photo_count) + ' with under 3 photos</div></div>';
+  h += '<div class="dkpi' + (d.no_price_count>0?' r':'') + '"><div class="l">No price shown</div><div class="big">' + N(d.no_price_count) + '</div><div class="sub">' + N(d.over_msrp_count) + ' priced over MSRP</div></div>';
+  h += '</div>';
+  h += '<div class="dcard" style="margin-bottom:14px"><div class="dh"><h4>In stock but not online (' + d.gaps.length + ')</h4></div><div class="pbody" style="max-height:34vh;overflow:auto"><table><thead><tr><th>Description</th><th>MY</th><th class="num">MSRP</th><th class="num">Age</th><th>VIN</th></tr></thead><tbody>';
+  h += d.gaps.length ? d.gaps.map(g => '<tr><td>' + (g.description||'\u2014') + '</td><td>' + (g.my||'\u2014') + '</td><td class="num mono">' + money(g.msrp) + '</td><td class="num mono">' + (g.age_days!=null?g.age_days+'d':'\u2014') + '</td><td class="mono">' + g.vin + '</td></tr>').join('') : '<tr><td colspan="5" class="empty">Every unit in stock is listed online.</td></tr>';
+  h += '</tbody></table></div></div>';
+  h += '<div class="dcard"><div class="dh"><h4>Listed online (' + d.online.length + ')</h4></div><div class="pbody" style="max-height:38vh;overflow:auto"><table><thead><tr><th>Model</th><th>Color</th><th class="num">Online price</th><th class="num">MSRP</th><th class="num">Photos</th><th class="num">Days online</th><th></th></tr></thead><tbody>';
+  h += d.online.length ? d.online.map(o => {
+    const pr = o.price==null ? '<span style="color:var(--accent-d)">No price</span>' : ('$'+Number(o.price).toLocaleString()+(o.over_msrp?' <span style="color:var(--accent-d)" title="over MSRP">&#9650;</span>':''));
+    const ph = o.photos<3 ? ('<span style="color:var(--accent-d)">'+o.photos+'</span>') : o.photos;
+    return '<tr><td>' + o.model + (o.in_stock?'':' <span style="color:var(--muted);font-size:11px">(not in stock)</span>') + '</td><td>' + (o.color||'\u2014') + '</td><td class="num mono">' + pr + '</td><td class="num mono">' + money(o.msrp) + '</td><td class="num mono">' + ph + '</td><td class="num mono">' + (o.days!=null?o.days+'d':'\u2014') + '</td><td class="num">' + (o.url?('<a class="go" href="'+o.url+'" target="_blank" rel="noopener">Open</a>'):'') + '</td></tr>';
+  }).join('') : '<tr><td colspan="7" class="empty">No PGA-brand new units in the online feed.</td></tr>';
+  h += '</tbody></table></div></div>';
+  $('#on-body').innerHTML = h;
+}
+async function saveFeed(){
+  const u = $('#on-url').value.trim();
+  const { error } = await sb.from('dealer_feeds').upsert({ dealer_code: me.code, feed_url: u || null, updated_at: new Date().toISOString() });
+  if (error) { toast('Could not save: ' + error.message); return; }
+  toast('Feed saved'); renderOnline();
+}
+document.getElementById('on-save').addEventListener('click', saveFeed);
+document.getElementById('on-refresh').addEventListener('click', renderOnline);
 
 /* ---- Network detail reports (with CSV export) ---- */
 const REPCOLS = {
