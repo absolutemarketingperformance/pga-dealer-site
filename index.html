@@ -137,10 +137,13 @@
   .brandbtn .chip{margin-right:0;width:26px;height:26px}
   .brandbtn:hover{border-color:var(--muted)}
   .brandbtn.on{border-color:var(--navy);box-shadow:0 0 0 2px var(--navy)}
+  .linklike{appearance:none;border:0;background:none;color:var(--accent);cursor:pointer;font:inherit;padding:0;text-decoration:underline}
+  .linklike:hover{color:var(--accent-d)}
   .onwrap{overflow-x:auto}
   .ontbl{width:100%}
   .ontbl thead th{position:sticky;top:0;background:#fff;z-index:3;box-shadow:inset 0 -1px 0 var(--line)}
-  .ontbl thead th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+  .ontbl thead th{white-space:normal;vertical-align:bottom}
+  .ontbl thead th.sortable{cursor:pointer;user-select:none}
   .ontbl thead th.sortable:hover{color:var(--accent)}
   .logout:hover{background:#1c3158}
   .note{background:#0b1830;color:#aebfd8;font-size:12.5px}
@@ -412,16 +415,11 @@
     </section>
     <section data-p="online" class="hide">
       <div class="panel">
-        <div class="phead"><h3>Online merchandising <span id="on-dealer" style="color:var(--muted);font-weight:400;font-size:13px"></span></h3><span class="meta" id="on-meta"></span></div>
-        <div class="actbar" id="on-bar-edit">
+        <div class="phead"><h3>Online merchandising <span id="on-dealer" style="color:var(--muted);font-weight:400;font-size:13px"></span><span id="on-status" class="hide" style="font-weight:400;font-size:12.5px;color:var(--ink2);margin-left:8px">&#10003; Feed connected &middot; <button class="linklike" id="on-edit">edit</button> &middot; <button class="linklike" id="on-refresh">refresh</button></span></h3><span class="meta" id="on-meta"></span></div>
+        <div class="actbar hide" id="on-bar-edit">
           <input id="on-url" placeholder="Paste this dealer's MotoHunt feed URL&hellip;" autocomplete="off" style="flex:1;min-width:240px">
           <button class="chipbtn" id="on-save">Save</button>
           <button class="chipbtn hide" id="on-cancel">Cancel</button>
-        </div>
-        <div class="actbar hide" id="on-bar-saved">
-          <span style="font-size:12.5px;color:var(--ink2)">&#10003; Feed connected</span>
-          <button class="chipbtn" id="on-edit">Change URL</button>
-          <button class="chipbtn" id="on-refresh">Refresh</button>
         </div>
         <div id="on-body" style="padding:14px 16px"><div class="empty">Paste the feed URL above and hit Save.</div></div>
       </div>
@@ -902,7 +900,7 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   t.setAttribute('aria-selected', 'true');
   document.querySelectorAll('section[data-p]').forEach(s => s.classList.toggle('hide', s.dataset.p !== t.dataset.t));
   if (me.role !== 'dealer') {
-    const storeT = ['perf','inv','ord','av','promo'].indexOf(t.dataset.t) >= 0;
+    const storeT = ['perf','inv','ord','av','promo','online'].indexOf(t.dataset.t) >= 0;
     $('#kpis').classList.toggle('hide', !(storeT && me.code));
     document.getElementById('dealer-name').classList.toggle('hide', !(storeT && me.code));
   }
@@ -1028,7 +1026,7 @@ async function renderOnline(){
   const { data: df } = await sb.from('dealer_feeds').select('feed_url').eq('dealer_code', me.code).maybeSingle();
   const hasFeed = !!(df && df.feed_url);
   $('#on-url').value = (df && df.feed_url) || '';
-  $('#on-bar-saved').classList.toggle('hide', !hasFeed);
+  $('#on-status').classList.toggle('hide', !hasFeed);
   $('#on-bar-edit').classList.toggle('hide', hasFeed);
   $('#on-cancel').classList.add('hide');
   $('#on-meta').textContent = '';
@@ -1041,7 +1039,7 @@ async function renderOnline(){
   drawOnline(data);
 }
 let onData = null, onSort = { col: null, dir: 1 };
-const ONCOLS = [['title','Vehicle','t'],['price','Online price','$'],['msrp','MSRP','$'],['photos','Photos','n'],['days','Days online','d'],['stock_days','Days in stock','d']];
+const ONCOLS = [['title','Vehicle','t'],['price','Online price','$'],['msrp','MSRP','$'],['photos','Photos','n'],['days','Online Age','d'],['stock_days','Invoice Age','d']];
 function drawOnline(d){
   onData = d; onSort = { col: null, dir: 1 };
   onlineMapDealer = me.code; onlineMap = {};
@@ -1049,10 +1047,12 @@ function drawOnline(d){
   const N = x => Number(x||0).toLocaleString();
   const money = x => x==null ? '\u2014' : '$'+Number(x).toLocaleString();
   $('#on-meta').textContent = d.online_count + ' PGA units online \u00b7 ' + d.stock_count + ' in stock';
-  let h = '<div class="dkpis" style="grid-template-columns:repeat(3,1fr);margin:4px 0 14px">';
-  h += '<div class="dkpi ' + (d.coverage_pct>=90?'g':'r') + '"><div class="l">Online coverage</div><div class="big">' + d.coverage_pct + '%</div><div class="sub">' + d.matched_count + ' of ' + d.stock_count + ' units listed</div></div>';
-  h += '<div class="dkpi' + (d.gaps.length>0?' r':'') + '"><div class="l">Not listed online</div><div class="big">' + N(d.gaps.length) + '</div><div class="sub">in stock, missing from the site</div></div>';
-  h += '<div class="dkpi' + (d.no_price_count>0?' r':'') + '"><div class="l">No price shown</div><div class="big">' + N(d.no_price_count) + '</div><div class="sub">' + N(d.over_msrp_count) + ' priced over MSRP</div></div>';
+  let h = '<div class="dkpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:4px 0 14px">';
+  h += '<div class="dkpi ' + (d.coverage_pct>=90?'g':'r') + '"><div class="l">Online coverage</div><div class="big">' + d.coverage_pct + '%</div><div class="sub">' + d.matched_count + ' of ' + d.stock_count + ' listed</div></div>';
+  h += '<div class="dkpi' + (d.gaps.length>0?' r':'') + '"><div class="l">Not listed online</div><div class="big">' + N(d.gaps.length) + '</div><div class="sub">missing from the site</div></div>';
+  h += '<div class="dkpi' + (d.no_price_count>0?' r':'') + '"><div class="l">No price shown</div><div class="big">' + N(d.no_price_count) + '</div><div class="sub">' + N(d.over_msrp_count) + ' over MSRP</div></div>';
+  h += '<div class="dkpi g"><div class="l">Priced under MSRP</div><div class="big">' + N(d.under_msrp_count) + '</div><div class="sub">online price below MSRP</div></div>';
+  h += '<div class="dkpi' + (d.aged365>0?' r':'') + '"><div class="l">Aged 365+ days</div><div class="big">' + N(d.aged365) + '</div><div class="sub">by invoice age</div></div>';
   h += '</div>';
   h += '<div class="dcard" style="margin-bottom:14px"><div class="dh"><h4>In stock but not online (' + d.gaps.length + ')</h4></div><div class="onwrap"><table class="ontbl"><thead><tr><th>Description</th><th>MY</th><th class="num">MSRP</th><th class="num">Age</th><th>VIN</th></tr></thead><tbody>';
   h += d.gaps.length ? d.gaps.map(g => '<tr><td>' + (g.description||'\u2014') + '</td><td>' + (g.my||'\u2014') + '</td><td class="num mono">' + money(g.msrp) + '</td><td class="num mono">' + (g.age_days!=null?g.age_days+'d':'\u2014') + '</td><td class="mono">' + g.vin + '</td></tr>').join('') : '<tr><td colspan="5" class="empty">Every unit in stock is listed online.</td></tr>';
@@ -1074,7 +1074,8 @@ function drawOnlineTable(){
   $('#on-head').innerHTML = '<tr>' + ONCOLS.map((c,i) => { const num=(c[2]!=='t'); const ar=onSort.col===i?(onSort.dir>0?' \u25B4':' \u25BE'):''; return '<th data-c="'+i+'" class="sortable'+(num?' num':'')+'">'+c[1]+ar+'</th>'; }).join('') + '<th></th></tr>';
   $('#on-head').querySelectorAll('th[data-c]').forEach(th => th.addEventListener('click', () => { const i=+th.dataset.c; const num=(ONCOLS[i][2]!=='t'); if (onSort.col===i) onSort.dir=-onSort.dir; else { onSort.col=i; onSort.dir=num?-1:1; } drawOnlineTable(); }));
   $('#on-rows').innerHTML = list.length ? list.map(o => {
-    const pr = o.price==null ? '<span style="color:var(--accent-d)">No price</span>' : ('$'+Number(o.price).toLocaleString()+(o.over_msrp?' <span style="color:var(--accent-d)" title="over MSRP">&#9650;</span>':''));
+    const under = (o.price!=null && o.msrp!=null && o.price<o.msrp);
+    const pr = o.price==null ? '<span style="color:var(--accent-d)">No price</span>' : ('$'+Number(o.price).toLocaleString()+(o.over_msrp?' <span style="color:var(--accent-d)" title="over MSRP">&#9650;</span>':'')+(under?' <span style="color:var(--green)" title="under MSRP">&#9660;</span>':''));
     return '<tr><td style="font-weight:500">' + (o.title||o.model||'') + (o.in_stock?'':' <span style="color:var(--muted);font-size:11px">(not in stock)</span>') + '</td>' +
       '<td class="num mono">' + pr + '</td>' +
       '<td class="num mono">' + money(o.msrp) + '</td>' +
@@ -1092,7 +1093,7 @@ async function saveFeed(){
 }
 document.getElementById('on-save').addEventListener('click', saveFeed);
 document.getElementById('on-refresh').addEventListener('click', renderOnline);
-document.getElementById('on-edit').addEventListener('click', () => { $('#on-bar-edit').classList.remove('hide'); $('#on-bar-saved').classList.add('hide'); $('#on-cancel').classList.remove('hide'); });
+document.getElementById('on-edit').addEventListener('click', () => { $('#on-bar-edit').classList.remove('hide'); $('#on-cancel').classList.remove('hide'); });
 document.getElementById('on-cancel').addEventListener('click', () => renderOnline());
 
 /* ---- Network detail reports (with CSV export) ---- */
