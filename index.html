@@ -137,6 +137,11 @@
   .brandbtn .chip{margin-right:0;width:26px;height:26px}
   .brandbtn:hover{border-color:var(--muted)}
   .brandbtn.on{border-color:var(--navy);box-shadow:0 0 0 2px var(--navy)}
+  .onwrap{overflow-x:auto}
+  .ontbl{width:100%}
+  .ontbl thead th{position:sticky;top:0;background:#fff;z-index:3;box-shadow:inset 0 -1px 0 var(--line)}
+  .ontbl thead th.sortable{cursor:pointer;user-select:none;white-space:nowrap}
+  .ontbl thead th.sortable:hover{color:var(--accent)}
   .logout:hover{background:#1c3158}
   .note{background:#0b1830;color:#aebfd8;font-size:12.5px}
   .note .wrap{padding:9px 22px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -408,9 +413,14 @@
     <section data-p="online" class="hide">
       <div class="panel">
         <div class="phead"><h3>Online merchandising <span id="on-dealer" style="color:var(--muted);font-weight:400;font-size:13px"></span></h3><span class="meta" id="on-meta"></span></div>
-        <div class="actbar">
+        <div class="actbar" id="on-bar-edit">
           <input id="on-url" placeholder="Paste this dealer's MotoHunt feed URL&hellip;" autocomplete="off" style="flex:1;min-width:240px">
           <button class="chipbtn" id="on-save">Save</button>
+          <button class="chipbtn hide" id="on-cancel">Cancel</button>
+        </div>
+        <div class="actbar hide" id="on-bar-saved">
+          <span style="font-size:12.5px;color:var(--ink2)">&#10003; Feed connected</span>
+          <button class="chipbtn" id="on-edit">Change URL</button>
           <button class="chipbtn" id="on-refresh">Refresh</button>
         </div>
         <div id="on-body" style="padding:14px 16px"><div class="empty">Paste the feed URL above and hit Save.</div></div>
@@ -1016,9 +1026,13 @@ async function renderOnline(){
   $('#on-dealer').textContent = me.name ? ('\u00b7 ' + me.name) : '';
   const body = $('#on-body');
   const { data: df } = await sb.from('dealer_feeds').select('feed_url').eq('dealer_code', me.code).maybeSingle();
+  const hasFeed = !!(df && df.feed_url);
   $('#on-url').value = (df && df.feed_url) || '';
+  $('#on-bar-saved').classList.toggle('hide', !hasFeed);
+  $('#on-bar-edit').classList.toggle('hide', hasFeed);
+  $('#on-cancel').classList.add('hide');
   $('#on-meta').textContent = '';
-  if (!df || !df.feed_url) { body.innerHTML = '<div class="empty">No feed set for this dealer. Paste their MotoHunt feed URL above and hit Save. Not every dealer has one.</div>'; return; }
+  if (!hasFeed) { body.innerHTML = '<div class="empty">No feed set for this dealer. Paste their MotoHunt feed URL above and hit Save. Not every dealer has one.</div>'; return; }
   body.innerHTML = '<div class="empty">Loading online inventory&hellip;</div>';
   const { data, error } = await sb.functions.invoke('merchandising', { body: { dealer_code: me.code } });
   if (error) { body.innerHTML = '<div class="empty">Could not load: ' + error.message + '</div>'; return; }
@@ -1026,28 +1040,49 @@ async function renderOnline(){
   if (!data || !data.has_feed) { body.innerHTML = '<div class="empty">No feed set.</div>'; return; }
   drawOnline(data);
 }
+let onData = null, onSort = { col: null, dir: 1 };
+const ONCOLS = [['title','Vehicle','t'],['price','Online price','$'],['msrp','MSRP','$'],['photos','Photos','n'],['days','Days online','d'],['stock_days','Days in stock','d']];
 function drawOnline(d){
+  onData = d; onSort = { col: null, dir: 1 };
   onlineMapDealer = me.code; onlineMap = {};
   (d.online || []).forEach(o => { if (o.url && o.vin) onlineMap[o.vin] = o.url; });
   const N = x => Number(x||0).toLocaleString();
   const money = x => x==null ? '\u2014' : '$'+Number(x).toLocaleString();
   $('#on-meta').textContent = d.online_count + ' PGA units online \u00b7 ' + d.stock_count + ' in stock';
-  let h = '<div class="dkpis" style="margin:4px 0 14px">';
-  h += '<div class="dkpi ' + (d.coverage_pct<100?'r':'g') + '"><div class="l">Online coverage</div><div class="big">' + d.coverage_pct + '%</div><div class="sub">' + d.matched_count + ' of ' + d.stock_count + ' units listed</div></div>';
-  h += '<div class="dkpi"><div class="l">Avg photos</div><div class="big">' + d.avg_photos + '</div><div class="sub">' + N(d.low_photo_count) + ' with under 3 photos</div></div>';
+  let h = '<div class="dkpis" style="grid-template-columns:repeat(3,1fr);margin:4px 0 14px">';
+  h += '<div class="dkpi ' + (d.coverage_pct>=90?'g':'r') + '"><div class="l">Online coverage</div><div class="big">' + d.coverage_pct + '%</div><div class="sub">' + d.matched_count + ' of ' + d.stock_count + ' units listed</div></div>';
+  h += '<div class="dkpi' + (d.gaps.length>0?' r':'') + '"><div class="l">Not listed online</div><div class="big">' + N(d.gaps.length) + '</div><div class="sub">in stock, missing from the site</div></div>';
   h += '<div class="dkpi' + (d.no_price_count>0?' r':'') + '"><div class="l">No price shown</div><div class="big">' + N(d.no_price_count) + '</div><div class="sub">' + N(d.over_msrp_count) + ' priced over MSRP</div></div>';
   h += '</div>';
-  h += '<div class="dcard" style="margin-bottom:14px"><div class="dh"><h4>In stock but not online (' + d.gaps.length + ')</h4></div><div class="pbody" style="max-height:34vh;overflow:auto"><table><thead><tr><th>Description</th><th>MY</th><th class="num">MSRP</th><th class="num">Age</th><th>VIN</th></tr></thead><tbody>';
+  h += '<div class="dcard" style="margin-bottom:14px"><div class="dh"><h4>In stock but not online (' + d.gaps.length + ')</h4></div><div class="onwrap"><table class="ontbl"><thead><tr><th>Description</th><th>MY</th><th class="num">MSRP</th><th class="num">Age</th><th>VIN</th></tr></thead><tbody>';
   h += d.gaps.length ? d.gaps.map(g => '<tr><td>' + (g.description||'\u2014') + '</td><td>' + (g.my||'\u2014') + '</td><td class="num mono">' + money(g.msrp) + '</td><td class="num mono">' + (g.age_days!=null?g.age_days+'d':'\u2014') + '</td><td class="mono">' + g.vin + '</td></tr>').join('') : '<tr><td colspan="5" class="empty">Every unit in stock is listed online.</td></tr>';
   h += '</tbody></table></div></div>';
-  h += '<div class="dcard"><div class="dh"><h4>Listed online (' + d.online.length + ')</h4></div><div class="pbody" style="max-height:38vh;overflow:auto"><table><thead><tr><th>Model</th><th>Color</th><th class="num">Online price</th><th class="num">MSRP</th><th class="num">Photos</th><th class="num">Days online</th><th></th></tr></thead><tbody>';
-  h += d.online.length ? d.online.map(o => {
-    const pr = o.price==null ? '<span style="color:var(--accent-d)">No price</span>' : ('$'+Number(o.price).toLocaleString()+(o.over_msrp?' <span style="color:var(--accent-d)" title="over MSRP">&#9650;</span>':''));
-    const ph = o.photos<3 ? ('<span style="color:var(--accent-d)">'+o.photos+'</span>') : o.photos;
-    return '<tr><td>' + o.model + (o.in_stock?'':' <span style="color:var(--muted);font-size:11px">(not in stock)</span>') + '</td><td>' + (o.color||'\u2014') + '</td><td class="num mono">' + pr + '</td><td class="num mono">' + money(o.msrp) + '</td><td class="num mono">' + ph + '</td><td class="num mono">' + (o.days!=null?o.days+'d':'\u2014') + '</td><td class="num">' + (o.url?('<a class="go" href="'+o.url+'" target="_blank" rel="noopener">Open</a>'):'') + '</td></tr>';
-  }).join('') : '<tr><td colspan="7" class="empty">No PGA-brand new units in the online feed.</td></tr>';
-  h += '</tbody></table></div></div>';
+  h += '<div class="dcard"><div class="dh"><h4>Listed online (' + d.online.length + ')</h4></div><div class="onwrap"><table class="ontbl"><thead id="on-head"></thead><tbody id="on-rows"></tbody></table></div></div>';
   $('#on-body').innerHTML = h;
+  drawOnlineTable();
+}
+function drawOnlineTable(){
+  if (!onData) return;
+  const money = x => x==null ? '\u2014' : '$'+Number(x).toLocaleString();
+  let list = (onData.online || []).slice();
+  if (onSort.col != null) {
+    const c = ONCOLS[onSort.col], k = c[0], num = (c[2] !== 't');
+    list.sort((a,b) => { let x=a[k], y=b[k];
+      if (num) { x=x==null?-Infinity:+x; y=y==null?-Infinity:+y; return (x-y)*onSort.dir; }
+      x=(x==null?'':String(x)).toLowerCase(); y=(y==null?'':String(y)).toLowerCase(); return x.localeCompare(y)*onSort.dir; });
+  }
+  $('#on-head').innerHTML = '<tr>' + ONCOLS.map((c,i) => { const num=(c[2]!=='t'); const ar=onSort.col===i?(onSort.dir>0?' \u25B4':' \u25BE'):''; return '<th data-c="'+i+'" class="sortable'+(num?' num':'')+'">'+c[1]+ar+'</th>'; }).join('') + '<th></th></tr>';
+  $('#on-head').querySelectorAll('th[data-c]').forEach(th => th.addEventListener('click', () => { const i=+th.dataset.c; const num=(ONCOLS[i][2]!=='t'); if (onSort.col===i) onSort.dir=-onSort.dir; else { onSort.col=i; onSort.dir=num?-1:1; } drawOnlineTable(); }));
+  $('#on-rows').innerHTML = list.length ? list.map(o => {
+    const pr = o.price==null ? '<span style="color:var(--accent-d)">No price</span>' : ('$'+Number(o.price).toLocaleString()+(o.over_msrp?' <span style="color:var(--accent-d)" title="over MSRP">&#9650;</span>':''));
+    return '<tr><td style="font-weight:500">' + (o.title||o.model||'') + (o.in_stock?'':' <span style="color:var(--muted);font-size:11px">(not in stock)</span>') + '</td>' +
+      '<td class="num mono">' + pr + '</td>' +
+      '<td class="num mono">' + money(o.msrp) + '</td>' +
+      '<td class="num mono">' + o.photos + '</td>' +
+      '<td class="num mono">' + (o.days!=null?o.days+'d':'\u2014') + '</td>' +
+      '<td class="num mono">' + (o.stock_days!=null?o.stock_days+'d':'\u2014') + '</td>' +
+      '<td class="num">' + (o.url?('<a class="go" href="'+o.url+'" target="_blank" rel="noopener">link</a>'):'') + '</td></tr>';
+  }).join('') : '<tr><td colspan="7" class="empty">No PGA-brand new units in the online feed.</td></tr>';
 }
 async function saveFeed(){
   const u = $('#on-url').value.trim();
@@ -1057,6 +1092,8 @@ async function saveFeed(){
 }
 document.getElementById('on-save').addEventListener('click', saveFeed);
 document.getElementById('on-refresh').addEventListener('click', renderOnline);
+document.getElementById('on-edit').addEventListener('click', () => { $('#on-bar-edit').classList.remove('hide'); $('#on-bar-saved').classList.add('hide'); $('#on-cancel').classList.remove('hide'); });
+document.getElementById('on-cancel').addEventListener('click', () => renderOnline());
 
 /* ---- Network detail reports (with CSV export) ---- */
 const REPCOLS = {
