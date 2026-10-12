@@ -695,7 +695,6 @@ async function start() {
       $('#dealer-combo').classList.remove('hide');
       document.getElementById('tab-admin').classList.remove('hide');
       document.getElementById('tab-activity').classList.remove('hide');
-      document.getElementById('tab-dash').classList.remove('hide');
       document.querySelectorAll('.storetab').forEach(b => b.classList.add('hide'));
       document.getElementById('home-btn').classList.remove('hide');
       $('#lock-label').textContent = me.role === 'admin' ? 'Corporate view \u00b7 all dealers' : ('RSM view \u00b7 ' + (me.rsm_name || 'your region'));
