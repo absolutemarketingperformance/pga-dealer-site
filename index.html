@@ -333,7 +333,7 @@
       <div class="panel"><div class="phead"><h3>Recent registrations</h3><span class="meta">Most recent sell-out activity</span></div><div class="pbody"><table><thead><tr><th>Date</th><th>Brand</th><th>Model</th><th>Serial</th></tr></thead><tbody id="recent-rows"></tbody></table></div></div>
     </section>
     <section data-p="inv" class="hide">
-      <div class="panel"><div class="phead"><h3>Units in stock</h3><span class="meta" id="inv-meta"></span></div><div class="pbody"><table><thead><tr><th>Brand</th><th>Model</th><th>Color</th><th class="num">MSRP</th><th>Serial</th><th class="num">Days in stock</th><th></th></tr></thead><tbody id="inv-rows"></tbody></table></div></div>
+      <div class="panel"><div class="phead"><h3>Units in stock</h3><span class="meta" id="inv-meta"></span></div><div class="pbody"><table><thead><tr><th>Brand</th><th>Model</th><th>Color</th><th class="num">MSRP</th><th>Serial</th><th class="num">Days in stock</th></tr></thead><tbody id="inv-rows"></tbody></table></div></div>
     </section>
     <section data-p="ord" class="hide">
       <div class="panel"><div class="phead"><h3>Open orders &amp; status</h3><span class="meta" id="ord-meta"></span></div><div class="pbody"><table><thead><tr><th>Brand</th><th>Model / description</th><th>Order #</th><th>Status</th><th></th></tr></thead><tbody id="ord-rows"></tbody></table></div></div>
@@ -727,6 +727,7 @@ function renderDealerList(filter) {
 function pickDealer(code) {
   const d = dealersList.find(x => x.code === code); if (!d) return;
   me.code = code; me.name = d.name || d.code; me.rsm = cleanRsm(d.rsm);
+  onReq++; onData = null;
   dInput.value = '';
   dList.classList.remove('on');
   document.querySelectorAll('.storetab').forEach(b => b.classList.remove('hide'));
@@ -743,6 +744,7 @@ document.addEventListener('click', e => { if (!dCombo.contains(e.target)) dList.
 function setDealer(code) {
   const d = dealersList.find(x => x.code === code);
   me.code = code; me.name = d ? d.name : code; me.rsm = d ? cleanRsm(d.rsm) : '';
+  onReq++; onData = null;
   loadData();
 }
 
@@ -803,12 +805,11 @@ function render() {
   $('#inv-meta').innerHTML = store.stock.length + ' active units &middot; ' + (aged > 0 ? '<b style="color:var(--red)">' + aged + ' over 365 days</b>' : 'none over 365 days');
   const ir = $('#inv-rows'); ir.innerHTML = '';
   const ss = store.stock.slice().sort((a, b) => (b.age_days || 0) - (a.age_days || 0));
-  if (!ss.length) ir.innerHTML = '<tr><td colspan="7" class="empty">No units in stock.</td></tr>';
+  if (!ss.length) ir.innerHTML = '<tr><td colspan="6" class="empty">No units in stock.</td></tr>';
   ss.forEach(u => {
     const text = u.description || u.model || '';
     const pr = priceLookup(text, u.brand);
     const d = u.age_days;
-    const onl = onlineUrl(u.serial);
     const myTag = u.my ? '<div class="mono">MY' + String(u.my).slice(-2) + '</div>' : '';
     ir.insertAdjacentHTML('beforeend',
       '<tr><td>' + chipImg(u.brand, text) + brandLabel(u.brand, text) + '</td>' +
@@ -816,7 +817,7 @@ function render() {
       '<td>' + colorText(u.color) + '</td>' +
       '<td class="num price' + (pr ? '' : ' none') + '">' + fmtPrice(pr) + '</td>' +
       '<td class="mono">' + (u.serial || '\u2014') + '</td>' +
-      '<td class="num"><span class="pill ageband ' + ageCls(d) + '">' + (d != null ? d + 'd' : '\u2014') + '</span></td>' + '<td class="num">' + (onl ? '<a class="go" href="' + onl + '" target="_blank" rel="noopener">Online &rarr;</a>' : '') + '</td></tr>');
+      '<td class="num"><span class="pill ageband ' + ageCls(d) + '">' + (d != null ? d + 'd' : '\u2014') + '</span></td></tr>');
   });
 
   const staff = me.role !== 'dealer';
@@ -843,7 +844,7 @@ function render() {
   orr.querySelectorAll('[data-act="del"]').forEach(b => b.addEventListener('click', () => deleteReq(b.dataset.id)));
 
   renderAvail(); renderReqs();
-  if (me.role !== 'dealer') { renderAdmin(); loadOnlineMap(); }
+  if (me.role !== 'dealer') renderAdmin();
 }
 
 function ageCls(d){ if (d == null) return ''; if (d <= 120) return 'g'; if (d <= 365) return 'y'; return 'r'; }
@@ -999,10 +1000,12 @@ async function renderDash(){
   (function(){ const top=lb.top||[],bot=lb.bottom||[]; const col=a=>a.map(d=>'<div class="lbrow"><span class="nm">'+d.name+'</span><span class="v">'+N(d.n)+'</span></div>').join('')||'<div class="lbrow"><span class="nm">\u2014</span></div>'; h+=dcard('Dealer leaderboard &middot; last 90 days','<div class="lbcols"><div class="lbcol"><h5>Top sellers</h5>'+col(top)+'</div><div class="lbcol"><h5>Lowest with sales</h5>'+col(bot)+'</div></div>',{k:'sales',p:'last90',t:'Registrations (last 90 days)'}); })();
   (function(){ const mx=Math.max(1,...av.map(a=>a.free)); let b=''; av.forEach(x=>{ b+=dbar(x.brand,x.free/mx*100,N(x.free)+' free',BRANDCLR[x.brand]); }); h+=dcard('Available to order by brand',b,{k:'availability',t:'Available to order'}); })();
   (function(){ const pct=en.dealers_total?Math.round((en.dealers_total-en.dormant_90)/en.dealers_total*100):0; h+=dcard('Network engagement','<div class="brow"><div class="blabel">Dealers selling</div><div class="btrack"><div class="bfill" style="width:'+pct+'%;background:var(--green)"></div></div><div class="bval">'+pct+'% of '+N(en.dealers_total)+'</div></div><div class="dnote">'+N(en.dormant_90)+' dealers had no registrations in the last 90 days. '+N(ad.active7)+' of '+N(ad.users)+' portal users were active this week.</div>',{go:'activity'}); })();
+  h+='<div class="dcard"><div class="dh"><h4>Photo gaps</h4><a class="go" data-pg="1">View &rarr;</a></div><div class="db"><div class="dnote">Units in stock with no studio photo matched, grouped by model and color. Open to see the full list and export it as your sourcing shopping list.</div></div></div>';
   h+='</div>';
   root.innerHTML=h;
   root.querySelectorAll('[data-rk]').forEach(a=>a.addEventListener('click',()=>openReport(a.dataset.rk,a.dataset.rp||null,a.dataset.rt)));
   root.querySelectorAll('[data-go]').forEach(a=>a.addEventListener('click',()=>goTab(a.dataset.go)));
+  root.querySelectorAll('[data-pg]').forEach(a=>a.addEventListener('click',openPhotoGaps));
 }
 
 /* ---- Online merchandising (MotoHunt feed vs PGA stock) ---- */
@@ -1021,24 +1024,27 @@ async function loadOnlineMap(){
 }
 async function renderOnline(){
   if (me.role === 'dealer') return;
+  const myReq = ++onReq, dealer = me.code;
   $('#on-dealer').textContent = me.name ? ('\u00b7 ' + me.name) : '';
   const body = $('#on-body');
-  const { data: df } = await sb.from('dealer_feeds').select('feed_url').eq('dealer_code', me.code).maybeSingle();
+  body.innerHTML = '<div class="empty">Loading online inventory&hellip;</div>';
+  $('#on-status').classList.add('hide'); $('#on-bar-edit').classList.add('hide'); $('#on-meta').textContent = '';
+  const { data: df } = await sb.from('dealer_feeds').select('feed_url').eq('dealer_code', dealer).maybeSingle();
+  if (myReq !== onReq || dealer !== me.code) return;
   const hasFeed = !!(df && df.feed_url);
   $('#on-url').value = (df && df.feed_url) || '';
   $('#on-status').classList.toggle('hide', !hasFeed);
   $('#on-bar-edit').classList.toggle('hide', hasFeed);
   $('#on-cancel').classList.add('hide');
-  $('#on-meta').textContent = '';
   if (!hasFeed) { body.innerHTML = '<div class="empty">No feed set for this dealer. Paste their MotoHunt feed URL above and hit Save. Not every dealer has one.</div>'; return; }
-  body.innerHTML = '<div class="empty">Loading online inventory&hellip;</div>';
-  const { data, error } = await sb.functions.invoke('merchandising', { body: { dealer_code: me.code } });
+  const { data, error } = await sb.functions.invoke('merchandising', { body: { dealer_code: dealer } });
+  if (myReq !== onReq || dealer !== me.code) return;
   if (error) { body.innerHTML = '<div class="empty">Could not load: ' + error.message + '</div>'; return; }
   if (data && data.error) { body.innerHTML = '<div class="empty">' + data.error + '</div>'; return; }
   if (!data || !data.has_feed) { body.innerHTML = '<div class="empty">No feed set.</div>'; return; }
   drawOnline(data);
 }
-let onData = null, onSort = { col: null, dir: 1 };
+let onData = null, onSort = { col: null, dir: 1 }, onReq = 0;
 const ONCOLS = [['title','Vehicle','t'],['price','Online price','$'],['msrp','MSRP','$'],['photos','Photos','n'],['days','Online Age','d'],['stock_days','Invoice Age','d']];
 function drawOnline(d){
   onData = d; onSort = { col: null, dir: 1 };
@@ -1101,7 +1107,8 @@ const REPCOLS = {
   stock: [['dealer','Dealer'],['dealer_code','Dealer #'],['brand','Brand'],['description','Description'],['my','MY'],['msrp','MSRP','$'],['serial','VIN'],['age_days','Age','d']],
   sales: [['dealer','Dealer'],['dealer_code','Dealer #'],['brand','Brand'],['model','Model'],['serial','VIN'],['reg_date','Registered','date']],
   orders: [['dealer','Dealer'],['dealer_code','Dealer #'],['brand','Brand'],['description','Description'],['sales_doc','Order #'],['status','Status']],
-  availability: [['brand','Brand'],['model','Model'],['description','Description'],['material','Material'],['dallas','In Dallas','n'],['free','Free','n'],['june','Arriving','n'],['color','Color']]
+  availability: [['brand','Brand'],['model','Model'],['description','Description'],['material','Material'],['dallas','In Dallas','n'],['free','Free','n'],['june','Arriving','n'],['color','Color']],
+  photogaps: [['brand','Brand'],['description','Model / color'],['my','MY'],['units','Units','n'],['dealers','Dealers','n'],['msrp','MSRP','$']]
 };
 let repKind='', repAll=[], repFiltered=[], repCols=[], repSearch='', repBrand='all', repSort={col:null,dir:1};
 function repEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1134,6 +1141,29 @@ async function openReport(kind, preset, title){
   repAll=rows;
   const brands=[...new Set(rows.map(r=>r.brand).filter(Boolean))];
   $('#rep-filters').innerHTML='<button class="chipbtn on" data-b="all">All brands</button>'+brands.map(b=>'<button class="chipbtn" data-b="'+repEsc(b)+'">'+repEsc(b)+'</button>').join('');
+  $('#rep-filters').querySelectorAll('.chipbtn').forEach(x=>x.addEventListener('click',()=>{ repBrand=x.dataset.b; $('#rep-filters').querySelectorAll('.chipbtn').forEach(y=>y.classList.remove('on')); x.classList.add('on'); drawReport(); }));
+  drawReport();
+}
+async function openPhotoGaps(){
+  document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected','false'));
+  document.querySelectorAll('section[data-p]').forEach(x=>x.classList.add('hide'));
+  document.getElementById('sec-report').classList.remove('hide');
+  if(me.role!=='dealer'){ $('#kpis').classList.add('hide'); document.getElementById('dealer-name').classList.add('hide'); }
+  $('#rep-title').textContent='Photo gaps'; $('#rep-meta').textContent='Scanning inventory\u2026';
+  $('#rep-head').innerHTML=''; $('#rep-rows').innerHTML=''; $('#rep-filters').innerHTML='';
+  repKind='photogaps'; repCols=REPCOLS.photogaps; repSearch=''; repBrand='all'; repSort={col:3,dir:-1}; $('#rep-search').value='';
+  const { data, error } = await sb.rpc('network_report', { kind:'stock' });
+  if(error || !Array.isArray(data)){ $('#rep-meta').textContent='Could not load report.'; return; }
+  const groups={};
+  for(const r of data){
+    if(bikePhoto(r.description, r.brand)) continue;
+    const key=(r.brand||'')+'|'+(r.description||'');
+    if(!groups[key]) groups[key]={ brand:r.brand, description:r.description||'\u2014', my:r.my||'', msrp:r.msrp||null, units:0, dset:new Set() };
+    const g=groups[key]; g.units++; if(r.dealer_code) g.dset.add(r.dealer_code); if(!g.msrp && r.msrp) g.msrp=r.msrp;
+  }
+  repAll=Object.values(groups).map(g=>({ brand:g.brand, description:g.description, my:g.my, units:g.units, dealers:g.dset.size, msrp:g.msrp })).sort((a,b)=>b.units-a.units);
+  const brands=[...new Set(repAll.map(r=>r.brand).filter(Boolean))];
+  $('#rep-filters').innerHTML='<button class=\"chipbtn on\" data-b=\"all\">All brands</button>'+brands.map(b=>'<button class=\"chipbtn\" data-b=\"'+repEsc(b)+'\">'+repEsc(b)+'</button>').join('');
   $('#rep-filters').querySelectorAll('.chipbtn').forEach(x=>x.addEventListener('click',()=>{ repBrand=x.dataset.b; $('#rep-filters').querySelectorAll('.chipbtn').forEach(y=>y.classList.remove('on')); x.classList.add('on'); drawReport(); }));
   drawReport();
 }
