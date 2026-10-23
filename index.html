@@ -430,6 +430,7 @@
         <div class="actbar">
           <input id="rep-search" placeholder="Search&hellip;" autocomplete="off">
           <div class="actfilters" id="rep-filters"></div>
+          <button class="chipbtn hide" id="rep-refresh">&#8635; Refresh scores</button>
           <button class="chipbtn" id="rep-export">&#8681; Export CSV</button>
         </div>
         <div class="pbody" style="max-height:64vh;overflow:auto"><table><thead id="rep-head"></thead><tbody id="rep-rows"></tbody></table></div>
@@ -1001,11 +1002,46 @@ async function renderDash(){
   (function(){ const mx=Math.max(1,...av.map(a=>a.free)); let b=''; av.forEach(x=>{ b+=dbar(x.brand,x.free/mx*100,N(x.free)+' free',BRANDCLR[x.brand]); }); h+=dcard('Available to order by brand',b,{k:'availability',t:'Available to order'}); })();
   (function(){ const pct=en.dealers_total?Math.round((en.dealers_total-en.dormant_90)/en.dealers_total*100):0; h+=dcard('Network engagement','<div class="brow"><div class="blabel">Dealers selling</div><div class="btrack"><div class="bfill" style="width:'+pct+'%;background:var(--green)"></div></div><div class="bval">'+pct+'% of '+N(en.dealers_total)+'</div></div><div class="dnote">'+N(en.dormant_90)+' dealers had no registrations in the last 90 days. '+N(ad.active7)+' of '+N(ad.users)+' portal users were active this week.</div>',{go:'activity'}); })();
   h+='<div class="dcard"><div class="dh"><h4>Photo gaps</h4><a class="go" data-pg="1">View &rarr;</a></div><div class="db"><div class="dnote">Units in stock with no studio photo matched, grouped by model and color. Open to see the full list and export it as your sourcing shopping list.</div></div></div>';
+  h+='<div class="dcard"><div class="dh"><h4>Online scoreboard</h4><a class="go" data-sb="1">View &rarr;</a></div><div class="db"><div class="dnote">Every dealer ranked by online merchandising: coverage, units not listed, pricing. Worst first. Built from the saved MotoHunt feeds.</div></div></div>';
   h+='</div>';
   root.innerHTML=h;
   root.querySelectorAll('[data-rk]').forEach(a=>a.addEventListener('click',()=>openReport(a.dataset.rk,a.dataset.rp||null,a.dataset.rt)));
   root.querySelectorAll('[data-go]').forEach(a=>a.addEventListener('click',()=>goTab(a.dataset.go)));
   root.querySelectorAll('[data-pg]').forEach(a=>a.addEventListener('click',openPhotoGaps));
+  root.querySelectorAll('[data-sb]').forEach(a=>a.addEventListener('click',openScoreboard));
+  renderMerchPanel(root);
+}
+async function renderMerchPanel(root){
+  const { data: scores } = await sb.from('merchandising_scores').select('*');
+  if (!scores || !scores.length) return;
+  let noFeed = null;
+  try { const { data: ov } = await sb.rpc('merch_overview'); if (ov) noFeed = (ov.with_stock||0) - (ov.with_feed||0); } catch(e){}
+  const live = scores.filter(s => (s.stock_count||0) >= 5 && !s.feed_error);
+  const best = live.slice().sort((a,b)=> (b.coverage_pct-a.coverage_pct) || (b.matched_count-a.matched_count)).slice(0,6);
+  const worst = live.filter(s=>s.not_online>0).sort((a,b)=> b.not_online-a.not_online).slice(0,6);
+  const netStock = scores.reduce((t,s)=>t+(s.stock_count||0),0);
+  const netMatched = scores.reduce((t,s)=>t+(s.matched_count||0),0);
+  const netCov = netStock ? Math.round(netMatched/netStock*100) : 0;
+  const netGap = netStock - netMatched;
+  const netMap = scores.reduce((t,s)=>t+(s.map_viol||0),0);
+  const feedErr = scores.filter(s=>s.feed_error).length;
+  const zeroCov = scores.filter(s=>!s.feed_error && s.stock_count>0 && s.matched_count===0).length;
+  const red = (n)=> n>0 ? '<span style="color:var(--accent-d)">'+n+'</span>' : '0';
+  let meta = 'network '+netCov+'% \u00b7 '+netGap.toLocaleString()+' not online \u00b7 '+netMap+' below MAP';
+  if (noFeed!=null) meta += ' \u00b7 '+noFeed+' dealers no feed';
+  let m = '<div class="panel" style="margin-top:16px"><div class="phead"><h3>Online merchandising</h3><span class="meta">'+meta+'</span></div>';
+  m += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:14px;padding:14px 16px">';
+  m += '<div class="dcard"><div class="dh"><h4>Doing it best</h4><a class="go" data-sb="1">Scoreboard &rarr;</a></div><div class="pbody" style="padding:0"><table><thead><tr><th>Dealer</th><th class="num">Coverage</th><th class="num">Online</th><th class="num">&lt;3 photos</th></tr></thead><tbody>';
+  m += best.length ? best.map(s=>'<tr><td>'+repEsc(s.dealer_name)+'</td><td class="num mono"><span style="color:var(--green)">'+s.coverage_pct+'%</span></td><td class="num mono">'+s.matched_count+' / '+s.stock_count+'</td><td class="num mono">'+red(s.low_photo||0)+'</td></tr>').join('') : '<tr><td colspan="4" class="empty">No dealers with 5+ units scored yet.</td></tr>';
+  m += '</tbody></table></div></div>';
+  m += '<div class="dcard"><div class="dh"><h4>Biggest opportunity</h4><a class="go" data-sb="1">Scoreboard &rarr;</a></div><div class="pbody" style="padding:0"><table><thead><tr><th>Dealer</th><th class="num">Not online</th><th class="num">Below MAP</th><th class="num">No price</th></tr></thead><tbody>';
+  m += worst.length ? worst.map(s=>'<tr><td>'+repEsc(s.dealer_name)+'</td><td class="num mono"><span style="color:var(--accent-d)">'+s.not_online+'</span></td><td class="num mono">'+red(s.map_viol||0)+'</td><td class="num mono">'+red(s.no_price||0)+'</td></tr>').join('') : '<tr><td colspan="4" class="empty">Everyone with a feed is fully listed.</td></tr>';
+  m += '</tbody></table></div></div>';
+  m += '</div>';
+  if (zeroCov || feedErr) m += '<div class="dnote" style="padding:0 16px 14px">' + (zeroCov? zeroCov+' dealers have a feed but zero matches, usually the feed carries no VIN or stock number, which is a data fix rather than a merchandising one. ':'') + (feedErr? feedErr+' feeds could not be read.':'') + '</div>';
+  m += '</div>';
+  const div = document.createElement('div'); div.innerHTML = m; root.appendChild(div);
+  div.querySelectorAll('[data-sb]').forEach(a=>a.addEventListener('click',openScoreboard));
 }
 
 /* ---- Online merchandising (MotoHunt feed vs PGA stock) ---- */
@@ -1052,25 +1088,32 @@ function drawOnline(d){
   (d.online || []).forEach(o => { if (o.url && o.vin) onlineMap[o.vin] = o.url; });
   const N = x => Number(x||0).toLocaleString();
   const money = x => x==null ? '\u2014' : '$'+Number(x).toLocaleString();
-  $('#on-meta').textContent = d.online_count + ' PGA units online \u00b7 ' + d.stock_count + ' in stock';
+  const onlineOnly = (d.online || []).filter(o => !o.in_stock);
+  $('#on-meta').textContent = d.matched_count + ' matched online \u00b7 ' + d.stock_count + ' in stock \u00b7 ' + onlineOnly.length + ' online only';
   let h = '<div class="dkpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:4px 0 14px">';
   h += '<div class="dkpi ' + (d.coverage_pct>=90?'g':'r') + '"><div class="l">Online coverage</div><div class="big">' + d.coverage_pct + '%</div><div class="sub">' + d.matched_count + ' of ' + d.stock_count + ' listed</div></div>';
   h += '<div class="dkpi' + (d.gaps.length>0?' r':'') + '"><div class="l">Not listed online</div><div class="big">' + N(d.gaps.length) + '</div><div class="sub">missing from the site</div></div>';
   h += '<div class="dkpi' + (d.no_price_count>0?' r':'') + '"><div class="l">No price shown</div><div class="big">' + N(d.no_price_count) + '</div><div class="sub">' + N(d.over_msrp_count) + ' over MSRP</div></div>';
-  h += '<div class="dkpi g"><div class="l">Priced under MSRP</div><div class="big">' + N(d.under_msrp_count) + '</div><div class="sub">online price below MSRP</div></div>';
+  h += '<div class="dkpi' + (d.map_viol_count>0?' r':'') + '"><div class="l">Below MAP (MY27)</div><div class="big">' + N(d.map_viol_count||0) + '</div><div class="sub">2027 units priced under MSRP</div></div>';
   h += '<div class="dkpi' + (d.aged365>0?' r':'') + '"><div class="l">Aged 365+ days</div><div class="big">' + N(d.aged365) + '</div><div class="sub">by invoice age</div></div>';
   h += '</div>';
-  h += '<div class="dcard" style="margin-bottom:14px"><div class="dh"><h4>In stock but not online (' + d.gaps.length + ')</h4></div><div class="onwrap"><table class="ontbl"><thead><tr><th>Description</th><th>MY</th><th class="num">MSRP</th><th class="num">Age</th><th>VIN</th></tr></thead><tbody>';
+  // 1. Matched (live online that tie to a stock unit)
+  h += '<div class="dcard" style="margin-bottom:14px"><div class="dh"><h4>Listed online (' + d.matched_count + ')</h4></div><div class="onwrap"><table class="ontbl"><thead id="on-head"></thead><tbody id="on-rows"></tbody></table></div></div>';
+  // 2. In stock but not online (the gap)
+  h += '<div class="dcard" style="margin-bottom:14px"><div class="dh"><h4>In stock but not online (' + d.gaps.length + ')</h4></div><div class="onwrap"><table class="ontbl"><thead><tr><th>Description</th><th>MY</th><th class="num">MSRP</th><th class="num">Invoice Age</th><th>VIN</th></tr></thead><tbody>';
   h += d.gaps.length ? d.gaps.map(g => '<tr><td>' + (g.description||'\u2014') + '</td><td>' + (g.my||'\u2014') + '</td><td class="num mono">' + money(g.msrp) + '</td><td class="num mono">' + (g.age_days!=null?g.age_days+'d':'\u2014') + '</td><td class="mono">' + g.vin + '</td></tr>').join('') : '<tr><td colspan="5" class="empty">Every unit in stock is listed online.</td></tr>';
   h += '</tbody></table></div></div>';
-  h += '<div class="dcard"><div class="dh"><h4>Listed online (' + d.online.length + ')</h4></div><div class="onwrap"><table class="ontbl"><thead id="on-head"></thead><tbody id="on-rows"></tbody></table></div></div>';
+  // 3. Online only (on the feed, no match in the stock file)
+  h += '<div class="dcard"><div class="dh"><h4>Online only (' + onlineOnly.length + ')</h4></div><div class="dnote" style="padding:8px 16px 0">On the website feed but not in the latest stock file. Usually future model years, recently sold units, or stock not on the PGA upload.</div><div class="onwrap"><table class="ontbl"><thead><tr><th>Vehicle</th><th class="num">Online price</th><th class="num">Photos</th><th class="num">Online Age</th><th></th></tr></thead><tbody>';
+  h += onlineOnly.length ? onlineOnly.map(o => '<tr><td style="font-weight:500">' + (o.title||o.model||'') + '</td><td class="num mono">' + (o.price==null?'\u2014':'$'+Number(o.price).toLocaleString()) + '</td><td class="num mono">' + o.photos + '</td><td class="num mono">' + (o.days!=null?o.days+'d':'\u2014') + '</td><td class="num">' + (o.url?('<a class="go" href="'+o.url+'" target="_blank" rel="noopener">link</a>'):'') + '</td></tr>').join('') : '<tr><td colspan="5" class="empty">Everything online matches a stock unit.</td></tr>';
+  h += '</tbody></table></div></div>';
   $('#on-body').innerHTML = h;
   drawOnlineTable();
 }
 function drawOnlineTable(){
   if (!onData) return;
   const money = x => x==null ? '\u2014' : '$'+Number(x).toLocaleString();
-  let list = (onData.online || []).slice();
+  let list = (onData.online || []).filter(o => o.in_stock).slice();
   if (onSort.col != null) {
     const c = ONCOLS[onSort.col], k = c[0], num = (c[2] !== 't');
     list.sort((a,b) => { let x=a[k], y=b[k];
@@ -1080,9 +1123,8 @@ function drawOnlineTable(){
   $('#on-head').innerHTML = '<tr>' + ONCOLS.map((c,i) => { const num=(c[2]!=='t'); const ar=onSort.col===i?(onSort.dir>0?' \u25B4':' \u25BE'):''; return '<th data-c="'+i+'" class="sortable'+(num?' num':'')+'">'+c[1]+ar+'</th>'; }).join('') + '<th></th></tr>';
   $('#on-head').querySelectorAll('th[data-c]').forEach(th => th.addEventListener('click', () => { const i=+th.dataset.c; const num=(ONCOLS[i][2]!=='t'); if (onSort.col===i) onSort.dir=-onSort.dir; else { onSort.col=i; onSort.dir=num?-1:1; } drawOnlineTable(); }));
   $('#on-rows').innerHTML = list.length ? list.map(o => {
-    const under = (o.price!=null && o.msrp!=null && o.price<o.msrp);
-    const pr = o.price==null ? '<span style="color:var(--accent-d)">No price</span>' : ('$'+Number(o.price).toLocaleString()+(o.over_msrp?' <span style="color:var(--accent-d)" title="over MSRP">&#9650;</span>':'')+(under?' <span style="color:var(--green)" title="under MSRP">&#9660;</span>':''));
-    return '<tr><td style="font-weight:500">' + (o.title||o.model||'') + (o.in_stock?'':' <span style="color:var(--muted);font-size:11px">(not in stock)</span>') + '</td>' +
+    const pr = o.price==null ? '<span style="color:var(--accent-d)">No price</span>' : ('$'+Number(o.price).toLocaleString()+(o.over_msrp?' <span style="color:#b7791f" title="above MSRP">&#9650;</span>':'')+(o.map_viol?' <span style="color:var(--accent-d)" title="below MAP (MY27)">&#9660;</span>':(o.under_msrp?' <span style="color:var(--green)" title="below MSRP">&#9660;</span>':'')));
+    return '<tr><td style="font-weight:500">' + (o.title||o.model||'') + '</td>' +
       '<td class="num mono">' + pr + '</td>' +
       '<td class="num mono">' + money(o.msrp) + '</td>' +
       '<td class="num mono">' + o.photos + '</td>' +
@@ -1108,7 +1150,8 @@ const REPCOLS = {
   sales: [['dealer','Dealer'],['dealer_code','Dealer #'],['brand','Brand'],['model','Model'],['serial','VIN'],['reg_date','Registered','date']],
   orders: [['dealer','Dealer'],['dealer_code','Dealer #'],['brand','Brand'],['description','Description'],['sales_doc','Order #'],['status','Status']],
   availability: [['brand','Brand'],['model','Model'],['description','Description'],['material','Material'],['dallas','In Dallas','n'],['free','Free','n'],['june','Arriving','n'],['color','Color']],
-  photogaps: [['brand','Brand'],['description','Model / color'],['my','MY'],['units','Units','n'],['dealers','Dealers','n'],['msrp','MSRP','$']]
+  photogaps: [['brand','Brand'],['description','Model / color'],['my','MY'],['units','Units','n'],['dealers','Dealers','n'],['msrp','MSRP','$']],
+  scoreboard: [['dealer_name','Dealer'],['dealer_code','Dealer #'],['coverage_pct','Coverage %','n'],['online_count','Online','n'],['stock_count','In stock','n'],['not_online','Not online','n'],['no_price','No price','n'],['map_viol','Below MAP','n'],['over_msrp','Over MSRP','n'],['low_photo','<3 photos','n'],['aged365','365+','n']]
 };
 let repKind='', repAll=[], repFiltered=[], repCols=[], repSearch='', repBrand='all', repSort={col:null,dir:1};
 function repEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -1124,7 +1167,7 @@ async function openReport(kind, preset, title){
   document.querySelectorAll('section[data-p]').forEach(s=>s.classList.add('hide'));
   document.getElementById('sec-report').classList.remove('hide');
   if(me.role!=='dealer'){ $('#kpis').classList.add('hide'); document.getElementById('dealer-name').classList.add('hide'); }
-  $('#rep-title').textContent=title||'Report'; $('#rep-meta').textContent='Loading\u2026';
+  $('#rep-title').textContent=title||'Report'; $('#rep-meta').textContent='Loading\u2026'; $('#rep-refresh').classList.add('hide');
   $('#rep-head').innerHTML=''; $('#rep-rows').innerHTML=''; $('#rep-filters').innerHTML='';
   repKind=kind; repCols=REPCOLS[kind]||[]; repSearch=''; repBrand='all'; repSort={col:null,dir:1}; $('#rep-search').value='';
   const { data, error } = await sb.rpc('network_report', { kind });
@@ -1149,7 +1192,7 @@ async function openPhotoGaps(){
   document.querySelectorAll('section[data-p]').forEach(x=>x.classList.add('hide'));
   document.getElementById('sec-report').classList.remove('hide');
   if(me.role!=='dealer'){ $('#kpis').classList.add('hide'); document.getElementById('dealer-name').classList.add('hide'); }
-  $('#rep-title').textContent='Photo gaps'; $('#rep-meta').textContent='Scanning inventory\u2026';
+  $('#rep-title').textContent='Photo gaps'; $('#rep-meta').textContent='Scanning inventory\u2026'; $('#rep-refresh').classList.add('hide');
   $('#rep-head').innerHTML=''; $('#rep-rows').innerHTML=''; $('#rep-filters').innerHTML='';
   repKind='photogaps'; repCols=REPCOLS.photogaps; repSearch=''; repBrand='all'; repSort={col:3,dir:-1}; $('#rep-search').value='';
   const { data, error } = await sb.rpc('network_report', { kind:'stock' });
@@ -1166,6 +1209,36 @@ async function openPhotoGaps(){
   $('#rep-filters').innerHTML='<button class=\"chipbtn on\" data-b=\"all\">All brands</button>'+brands.map(b=>'<button class=\"chipbtn\" data-b=\"'+repEsc(b)+'\">'+repEsc(b)+'</button>').join('');
   $('#rep-filters').querySelectorAll('.chipbtn').forEach(x=>x.addEventListener('click',()=>{ repBrand=x.dataset.b; $('#rep-filters').querySelectorAll('.chipbtn').forEach(y=>y.classList.remove('on')); x.classList.add('on'); drawReport(); }));
   drawReport();
+}
+async function openScoreboard(){
+  document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected','false'));
+  document.querySelectorAll('section[data-p]').forEach(x=>x.classList.add('hide'));
+  document.getElementById('sec-report').classList.remove('hide');
+  if(me.role!=='dealer'){ $('#kpis').classList.add('hide'); document.getElementById('dealer-name').classList.add('hide'); }
+  $('#rep-title').textContent='Online scoreboard'; $('#rep-meta').textContent='Loading\u2026';
+  $('#rep-head').innerHTML=''; $('#rep-rows').innerHTML=''; $('#rep-filters').innerHTML='';
+  $('#rep-refresh').classList.remove('hide');
+  repKind='scoreboard'; repCols=REPCOLS.scoreboard; repSearch=''; repBrand='all'; repSort={col:2,dir:1}; $('#rep-search').value='';
+  await loadScores();
+}
+async function loadScores(){
+  const { data, error } = await sb.from('merchandising_scores').select('*');
+  if(error){ $('#rep-meta').textContent='Could not load scores.'; return; }
+  repAll=(data||[]).slice();
+  if(!repAll.length){ $('#rep-head').innerHTML=''; $('#rep-rows').innerHTML='<tr><td class=\"empty\" colspan=\"'+repCols.length+'\">No scores yet. Hit Refresh scores to compute them from every saved feed.</td></tr>'; $('#rep-meta').textContent='0 dealers scored'; return; }
+  drawReport();
+  const last=repAll.reduce((m,r)=> (r.updated_at&&r.updated_at>m)?r.updated_at:m,'');
+  if(last){ const dt=new Date(last); $('#rep-meta').textContent=repAll.length+' dealers \u00b7 updated '+dt.toLocaleDateString()+' '+dt.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
+}
+async function refreshScores(){
+  const btn=$('#rep-refresh'); const old=btn.innerHTML; btn.innerHTML='Computing\u2026'; btn.disabled=true;
+  $('#rep-meta').textContent='Pulling every saved feed and matching to stock. This can take a minute\u2026';
+  const { data, error } = await sb.functions.invoke('merchandising_all', { body:{} });
+  btn.innerHTML=old; btn.disabled=false;
+  if(error){ $('#rep-meta').textContent='Refresh failed: '+error.message; return; }
+  if(data && data.error){ $('#rep-meta').textContent='Refresh failed: '+data.error; return; }
+  toast((data&&data.count?data.count:0)+' dealers scored');
+  await loadScores();
 }
 function drawReport(){
   const q=repSearch.toLowerCase().trim();
@@ -1202,6 +1275,7 @@ function exportReport(){
 }
 $('#rep-search').addEventListener('input', e=>{ repSearch=e.target.value; drawReport(); });
 $('#rep-export').addEventListener('click', exportReport);
+$('#rep-refresh').addEventListener('click', refreshScores);
 
 /* ---- Activity: last-login rollup for corporate + RSM ---- */
 let actUsers = [], actFilter = 'all', actSearch = '', actSortInactive = false;
