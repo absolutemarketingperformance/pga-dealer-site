@@ -145,6 +145,8 @@
   .ontbl thead th{white-space:normal;vertical-align:bottom}
   .ontbl thead th.sortable{cursor:pointer;user-select:none}
   .ontbl thead th.sortable:hover{color:var(--accent)}
+  #rep-rows tr.rowlink{cursor:pointer}
+  #rep-rows tr.rowlink:hover td{background:#eef2f7}
   .logout:hover{background:#1c3158}
   .note{background:#0b1830;color:#aebfd8;font-size:12.5px}
   .note .wrap{padding:9px 22px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -315,7 +317,7 @@
       <div class="kpi"><div class="lab">Open orders</div><div class="val" id="k-orders">0</div><div class="sub">In the pipeline now</div></div>
     </div>
     <nav class="tabs" role="tablist">
-      <button class="tab hide" id="tab-dash" role="tab" aria-selected="false" data-t="dash">Home</button>
+      <button class="tab hide" id="tab-dash" role="tab" aria-selected="false" data-t="dash">Overview</button>
       <button class="tab storetab" role="tab" aria-selected="true" data-t="perf">Performance</button>
       <button class="tab storetab" role="tab" aria-selected="false" data-t="inv">Inventory</button>
       <button class="tab storetab" role="tab" aria-selected="false" data-t="ord">Orders</button>
@@ -704,6 +706,7 @@ async function start() {
       $('#dealer-combo').classList.remove('hide');
       document.getElementById('tab-admin').classList.remove('hide');
       document.getElementById('tab-activity').classList.remove('hide');
+      document.getElementById('tab-dash').classList.remove('hide');
       document.querySelectorAll('.storetab').forEach(b => b.classList.add('hide'));
       document.getElementById('home-btn').classList.remove('hide');
       $('#lock-label').textContent = me.role === 'admin' ? 'Corporate view \u00b7 all dealers' : ('RSM view \u00b7 ' + (me.rsm_name || 'your region'));
@@ -1001,7 +1004,6 @@ async function renderDash(){
   (function(){ const top=lb.top||[],bot=lb.bottom||[]; const col=a=>a.map(d=>'<div class="lbrow"><span class="nm">'+d.name+'</span><span class="v">'+N(d.n)+'</span></div>').join('')||'<div class="lbrow"><span class="nm">\u2014</span></div>'; h+=dcard('Dealer leaderboard &middot; last 90 days','<div class="lbcols"><div class="lbcol"><h5>Top sellers</h5>'+col(top)+'</div><div class="lbcol"><h5>Lowest with sales</h5>'+col(bot)+'</div></div>',{k:'sales',p:'last90',t:'Registrations (last 90 days)'}); })();
   (function(){ const mx=Math.max(1,...av.map(a=>a.free)); let b=''; av.forEach(x=>{ b+=dbar(x.brand,x.free/mx*100,N(x.free)+' free',BRANDCLR[x.brand]); }); h+=dcard('Available to order by brand',b,{k:'availability',t:'Available to order'}); })();
   (function(){ const pct=en.dealers_total?Math.round((en.dealers_total-en.dormant_90)/en.dealers_total*100):0; h+=dcard('Network engagement','<div class="brow"><div class="blabel">Dealers selling</div><div class="btrack"><div class="bfill" style="width:'+pct+'%;background:var(--green)"></div></div><div class="bval">'+pct+'% of '+N(en.dealers_total)+'</div></div><div class="dnote">'+N(en.dormant_90)+' dealers had no registrations in the last 90 days. '+N(ad.active7)+' of '+N(ad.users)+' portal users were active this week.</div>',{go:'activity'}); })();
-  h+='<div class="dcard"><div class="dh"><h4>Photo gaps</h4><a class="go" data-pg="1">View &rarr;</a></div><div class="db"><div class="dnote">Units in stock with no studio photo matched, grouped by model and color. Open to see the full list and export it as your sourcing shopping list.</div></div></div>';
   h+='<div class="dcard"><div class="dh"><h4>Online scoreboard</h4><a class="go" data-sb="1">View &rarr;</a></div><div class="db"><div class="dnote">Every dealer ranked by online merchandising: coverage, units not listed, pricing. Worst first. Built from the saved MotoHunt feeds.</div></div></div>';
   h+='</div>';
   root.innerHTML=h;
@@ -1259,8 +1261,9 @@ function drawReport(){
   $('#rep-head').querySelectorAll('th[data-col]').forEach(th=>th.addEventListener('click',()=>{ const i=+th.dataset.col; if(repSort.col===i) repSort.dir=-repSort.dir; else { repSort.col=i; repSort.dir=1; } drawReport(); }));
   const cap=500, show=list.slice(0,cap);
   $('#rep-rows').innerHTML = show.length
-    ? show.map(r=>'<tr>'+repCols.map(c=>'<td'+((c[2]==='$'||c[2]==='d'||c[2]==='n')?' class="num mono"':'')+'>'+repCell(r[c[0]],c[2])+'</td>').join('')+'</tr>').join('')
+    ? show.map(r=>'<tr'+(repKind==='scoreboard'&&r.dealer_code?' class="rowlink" data-dc="'+repEsc(r.dealer_code)+'"':'')+'>'+repCols.map(c=>'<td'+((c[2]==='$'||c[2]==='d'||c[2]==='n')?' class="num mono"':'')+'>'+repCell(r[c[0]],c[2])+'</td>').join('')+'</tr>').join('')
     : '<tr><td class="empty" colspan="'+repCols.length+'">No rows match.</td></tr>';
+  if(repKind==='scoreboard') $('#rep-rows').querySelectorAll('tr[data-dc]').forEach(tr=>tr.addEventListener('click',()=>pickDealer(tr.dataset.dc)));
   $('#rep-meta').textContent = list.length.toLocaleString()+' rows'+(list.length>cap?(' \u00b7 showing first '+cap+', Export for all'):'');
 }
 function csvVal(v){ if(v==null) return ''; let s=String(v); return /[",\n]/.test(s)?('"'+s.replace(/"/g,'""')+'"'):s; }
