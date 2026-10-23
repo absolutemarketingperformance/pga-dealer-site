@@ -728,7 +728,7 @@ function renderDealerList(filter) {
   dList.classList.add('on');
   dList.querySelectorAll('[data-code]').forEach(el => el.addEventListener('mousedown', e => { e.preventDefault(); pickDealer(el.dataset.code); }));
 }
-function pickDealer(code) {
+function pickDealer(code, tab) {
   const d = dealersList.find(x => x.code === code); if (!d) return;
   me.code = code; me.name = d.name || d.code; me.rsm = cleanRsm(d.rsm);
   onReq++; onData = null;
@@ -738,7 +738,7 @@ function pickDealer(code) {
   $('#kpis').classList.remove('hide');
   document.getElementById('dealer-name').classList.remove('hide');
   loadData();
-  goTab('perf');
+  goTab(tab || 'perf');
 }
 function openDealerList() { dInput.value = ''; renderDealerList(''); dInput.focus(); }
 dInput.addEventListener('focus', openDealerList);
@@ -1263,7 +1263,7 @@ function drawReport(){
   $('#rep-rows').innerHTML = show.length
     ? show.map(r=>'<tr'+(repKind==='scoreboard'&&r.dealer_code?' class="rowlink" data-dc="'+repEsc(r.dealer_code)+'"':'')+'>'+repCols.map(c=>'<td'+((c[2]==='$'||c[2]==='d'||c[2]==='n')?' class="num mono"':'')+'>'+repCell(r[c[0]],c[2])+'</td>').join('')+'</tr>').join('')
     : '<tr><td class="empty" colspan="'+repCols.length+'">No rows match.</td></tr>';
-  if(repKind==='scoreboard') $('#rep-rows').querySelectorAll('tr[data-dc]').forEach(tr=>tr.addEventListener('click',()=>pickDealer(tr.dataset.dc)));
+  if(repKind==='scoreboard') $('#rep-rows').querySelectorAll('tr[data-dc]').forEach(tr=>tr.addEventListener('click',()=>pickDealer(tr.dataset.dc,'online')));
   $('#rep-meta').textContent = list.length.toLocaleString()+' rows'+(list.length>cap?(' \u00b7 showing first '+cap+', Export for all'):'');
 }
 function csvVal(v){ if(v==null) return ''; let s=String(v); return /[",\n]/.test(s)?('"'+s.replace(/"/g,'""')+'"'):s; }
