@@ -273,6 +273,7 @@
     <div class="field"><label>Password</label><input id="password" type="password" autocomplete="current-password" placeholder="Your password"></div>
     <button class="signin" id="signin">Sign in</button>
     <div class="err" id="login-err"></div>
+    <button type="button" class="linklike" id="forgot" style="margin-top:10px">Forgot password?</button>
   </div>
 </div>
 
@@ -395,11 +396,11 @@
     </section>
     <section data-p="admin" class="hide">
       <div class="panel">
-        <div class="phead"><h3>Users at <span id="au-dealer-name"></span></h3><span class="meta" id="au-meta"></span></div>
+        <div class="phead"><h3 id="au-title">Users</h3><span class="meta" id="au-meta"></span></div>
         <div class="pbody"><table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Position</th><th>Last seen</th><th>Access</th><th></th></tr></thead><tbody id="au-rows"></tbody></table></div>
       </div>
       <div class="panel">
-        <div class="phead"><h3>Add a user to this store</h3></div>
+        <div class="phead"><h3 id="au-add-title">Add a user</h3><span class="meta" id="au-add-note"></span></div>
         <div style="padding:16px 18px;display:grid;gap:12px;max-width:560px">
           <div class="frow2">
             <div class="ffield"><label>First name</label><input id="au-fn" autocomplete="off"></div>
@@ -612,7 +613,7 @@ function thumb(desc,b){ const cls=brandCls(b,desc); const p=bikePhoto(desc,b);
   if(p) return '<img class="thumb" src="'+p+'" alt="" onerror="bikeFail(this,\'' + cls + '\')">';
   return '<span class="thumb chip '+cls+'"></span>'; }
 
-let sb=null, me={role:'dealer'}, dealersList=[], store={}, avFilter='all', avSearch='', requests=[], rsmMap={};
+let sb=null, me={role:'dealer'}, dealersList=[], store={}, avFilter='all', avSearch='', requests=[], rsmMap={}, drilledStore=null;
 
 /* EmailJS init */
 let EMAILJS_READY=false;
@@ -643,6 +644,14 @@ $('#setpw-btn').addEventListener('click', setPassword);
 $('#pw2').addEventListener('keydown', e => { if (e.key === 'Enter') setPassword(); });
 
 $('#signin').addEventListener('click', signIn);
+$('#forgot').addEventListener('click', async () => {
+  const em = $('#email').value.trim(); const el = $('#login-err');
+  if(!em){ el.style.color=''; el.textContent='Enter your email above first, then click Forgot password.'; return; }
+  el.style.color='var(--muted)'; el.textContent='Sending reset\u2026';
+  const { error } = await sb.auth.resetPasswordForEmail(em, { redirectTo: location.origin });
+  el.style.color = error ? '' : 'var(--green)';
+  el.textContent = error ? ('Could not send reset: '+error.message) : ('Password reset sent to '+em+'. Check your email to set a new password.');
+});
 $('#password').addEventListener('keydown', e => { if (e.key === 'Enter') signIn(); });
 async function signIn() {
   if (!sb) { $('#login-err').textContent = 'Add your Supabase keys in the page code first.'; return; }
@@ -731,6 +740,7 @@ function renderDealerList(filter) {
 function pickDealer(code, tab) {
   const d = dealersList.find(x => x.code === code); if (!d) return;
   me.code = code; me.name = d.name || d.code; me.rsm = cleanRsm(d.rsm);
+  drilledStore = code;
   onReq++; onData = null;
   dInput.value = '';
   dList.classList.remove('on');
@@ -910,6 +920,7 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
     document.getElementById('dealer-name').classList.toggle('hide', !(storeT && me.code));
   }
   if (t.dataset.t === 'promo') renderPromos();
+  if (t.dataset.t === 'dash') drilledStore = null;
   if (t.dataset.t === 'admin') renderAdmin();
   if (t.dataset.t === 'activity') renderActivity();
   if (t.dataset.t === 'online') renderOnline();
@@ -1261,10 +1272,12 @@ function drawReport(){
   $('#rep-head').querySelectorAll('th[data-col]').forEach(th=>th.addEventListener('click',()=>{ const i=+th.dataset.col; if(repSort.col===i) repSort.dir=-repSort.dir; else { repSort.col=i; repSort.dir=1; } drawReport(); }));
   const cap=500, show=list.slice(0,cap);
   $('#rep-rows').innerHTML = show.length
-    ? show.map(r=>'<tr'+(repKind==='scoreboard'&&r.dealer_code?' class="rowlink" data-dc="'+repEsc(r.dealer_code)+'"':'')+'>'+repCols.map(c=>'<td'+((c[2]==='$'||c[2]==='d'||c[2]==='n')?' class="num mono"':'')+'>'+repCell(r[c[0]],c[2])+'</td>').join('')+'</tr>').join('')
+    ? show.map(r=>'<tr'+(repKind==='scoreboard'&&r.dealer_code?' class="rowlink" data-dc="'+repEsc(r.dealer_code)+'"':'')+'>'+repCols.map(c=>{ let cv=repCell(r[c[0]],c[2]); if(repKind==='scoreboard'&&c[0]==='coverage_pct'&&(r.matched_count||0)===0&&(r.stock_count||0)>0) cv+='<span title="No VIN matches from the inventory feed" style="color:var(--accent-d);font-weight:700">*</span>'; return '<td'+((c[2]==='$'||c[2]==='d'||c[2]==='n')?' class="num mono"':'')+'>'+cv+'</td>'; }).join('')+'</tr>').join('')
     : '<tr><td class="empty" colspan="'+repCols.length+'">No rows match.</td></tr>';
   if(repKind==='scoreboard') $('#rep-rows').querySelectorAll('tr[data-dc]').forEach(tr=>tr.addEventListener('click',()=>pickDealer(tr.dataset.dc,'online')));
-  $('#rep-meta').textContent = list.length.toLocaleString()+' rows'+(list.length>cap?(' \u00b7 showing first '+cap+', Export for all'):'');
+  let rmeta = list.length.toLocaleString()+' rows'+(list.length>cap?(' \u00b7 showing first '+cap+', Export for all'):'');
+  if(repKind==='scoreboard' && list.some(r=>(r.matched_count||0)===0 && (r.stock_count||0)>0)) rmeta += '  \u00b7  * no VIN matches from inventory feed';
+  $('#rep-meta').textContent = rmeta;
 }
 function csvVal(v){ if(v==null) return ''; let s=String(v); return /[",\n]/.test(s)?('"'+s.replace(/"/g,'""')+'"'):s; }
 function exportReport(){
@@ -1355,14 +1368,19 @@ $('#act-sort').addEventListener('click', () => {
 
 async function renderAdmin() {
   if (me.role === 'dealer') return;
-  document.getElementById('au-dealer-name').textContent = me.name || me.code || '';
+  const storeMode = !!drilledStore;
+  document.getElementById('au-title').textContent = storeMode ? ('Users at ' + (me.name || me.code || '')) : 'Corporate team';
+  document.getElementById('au-add-title').textContent = storeMode ? 'Add a user to this store' : 'Grant corporate (all-store) access';
+  document.getElementById('au-add-note').textContent = storeMode ? '' : 'This person sees every dealer, like you.';
   const rows = document.getElementById('au-rows'); rows.innerHTML = '<tr><td colspan="7" class="empty">Loading\u2026</td></tr>';
-  const { data, error } = await sb.from('profiles').select('id,first_name,last_name,email,phone,position,role,last_seen').eq('dealer_code', me.code);
+  let qb = sb.from('profiles').select('id,first_name,last_name,email,phone,position,role,last_seen');
+  qb = storeMode ? qb.eq('dealer_code', drilledStore) : qb.in('role', ['admin','rsm']);
+  const { data, error } = await qb;
   if (error) { rows.innerHTML = '<tr><td colspan="7" class="empty">Could not load users.</td></tr>'; return; }
-  const users = data || [];
+  const users = (data || []).sort((a,b)=> ((a.last_name||'')+(a.first_name||'')).localeCompare((b.last_name||'')+(b.first_name||'')));
   const active30 = users.filter(u => u.last_seen && (Date.now() - new Date(u.last_seen).getTime()) < 30 * 864e5).length;
   document.getElementById('au-meta').textContent = users.length + ' user' + (users.length === 1 ? '' : 's') + (users.length ? (' \u00b7 ' + active30 + ' active in 30 days') : '');
-  if (!users.length) { rows.innerHTML = '<tr><td colspan="7" class="empty">No users yet for this store.</td></tr>'; return; }
+  if (!users.length) { rows.innerHTML = '<tr><td colspan="7" class="empty">' + (storeMode ? 'No users yet for this store.' : 'No corporate users yet.') + '</td></tr>'; return; }
   rows.innerHTML = '';
   users.forEach(u => {
     const name = ((u.first_name || '') + ' ' + (u.last_name || '')).trim() || '\u2014';
@@ -1388,8 +1406,12 @@ async function addUser() {
   const pos = document.getElementById('au-pos').value;
   const st = document.getElementById('au-status'); st.style.color = 'var(--muted)';
   if (!email) { st.textContent = 'Email is required.'; return; }
-  st.textContent = 'Sending invite\u2026';
-  const { data, error } = await sb.functions.invoke('create-dealer-user', { body: { email: email, dealer_code: me.code, role: 'dealer', first_name: fn, last_name: ln, phone: phone, position: pos } });
+  const storeMode = !!drilledStore;
+  const body = storeMode
+    ? { email: email, dealer_code: drilledStore, role: 'dealer', first_name: fn, last_name: ln, phone: phone, position: pos }
+    : { email: email, role: 'admin', first_name: fn, last_name: ln, phone: phone };
+  st.textContent = storeMode ? 'Sending invite\u2026' : 'Granting admin access\u2026';
+  const { data, error } = await sb.functions.invoke('create-dealer-user', { body: body });
   if (error) { st.style.color = 'var(--accent-d)'; st.textContent = 'Failed: ' + error.message + ' (is the create-dealer-user function deployed?)'; return; }
   if (data && data.error) { st.style.color = 'var(--accent-d)'; st.textContent = 'Failed: ' + data.error; return; }
   st.style.color = 'var(--green)'; st.textContent = 'Invite sent to ' + email + '. They set their own password from the email.';
