@@ -399,6 +399,28 @@
         <div class="phead"><h3 id="au-title">Users</h3><span class="meta" id="au-meta"></span></div>
         <div class="pbody"><table><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Position</th><th>Last seen</th><th>Access</th><th></th></tr></thead><tbody id="au-rows"></tbody></table></div>
       </div>
+      <div class="panel hide" id="rsm-panel">
+        <div class="phead"><h3>RSM routing</h3><span class="meta" id="rsm-meta"></span></div>
+        <div style="padding:16px 18px;display:grid;gap:10px;max-width:560px">
+          <div style="font-size:13px;color:var(--ink2)">Order requests from this store email its RSM. Override who that is here; leave on Dealer default to use the RSM on the dealer record.</div>
+          <div class="frow2">
+            <div class="ffield"><label>Assigned RSM</label><select id="rsm-sel" class="fsel"></select></div>
+            <div style="display:flex;align-items:flex-end"><button class="chipbtn" id="rsm-save">Save</button></div>
+          </div>
+          <div id="rsm-status" style="font-size:12.5px;color:var(--muted);min-height:16px"></div>
+        </div>
+      </div>
+      <div class="panel hide" id="monthly-panel">
+        <div class="phead"><h3>Monthly dealer email</h3></div>
+        <div style="padding:16px 18px;display:grid;gap:10px;max-width:560px">
+          <div style="font-size:13px;color:var(--ink2)">Emails each store's owner/GM a monthly snapshot of their numbers. Send a test to yourself first.</div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="chipbtn" id="me-test">Send test to me</button>
+            <button class="btn-primary" id="me-send">Send to all dealers</button>
+          </div>
+          <div id="me-status" style="font-size:12.5px;color:var(--muted);min-height:16px"></div>
+        </div>
+      </div>
       <div class="panel">
         <div class="phead"><h3 id="au-add-title">Add a user</h3><span class="meta" id="au-add-note"></span></div>
         <div style="padding:16px 18px;display:grid;gap:12px;max-width:560px">
@@ -708,6 +730,9 @@ async function start() {
       $('#dealer-combo').classList.add('hide');
       $('#lock-label').textContent = 'Locked to your dealership';
       $('#kpis').classList.remove('hide');
+      document.getElementById('tab-online').classList.remove('hide');
+      document.getElementById('tab-activity').classList.remove('hide');
+      document.getElementById('tab-admin').classList.remove('hide');
       await loadData();
     } else {
       const list = await sb.from('dealers').select('code,name,rsm').order('name');
@@ -768,11 +793,11 @@ async function loadData() {
     sb.from('stock').select('*').eq('dealer_code', me.code),
     sb.from('orders').select('*').eq('dealer_code', me.code),
     sb.from('availability').select('*'),
-    sb.from('data_meta').select('as_of').maybeSingle(),
+    sb.from('data_meta').select('as_of, uploaded').maybeSingle(),
     sb.from('order_requests').select('*').eq('dealer_code', me.code).order('created_at', { ascending: false })
   ]);
   store = { sales: sales.data || [], stock: stock.data || [], orders: orders.data || [], avail: avail.data || [],
-            asOf: meta.data ? meta.data.as_of : null, reqOrders: (reqs && reqs.data) ? reqs.data : [] };
+            asOf: meta.data ? meta.data.as_of : null, uploaded: meta.data ? meta.data.uploaded : null, reqOrders: (reqs && reqs.data) ? reqs.data : [] };
   render();
 }
 
@@ -783,7 +808,8 @@ function render() {
   if (me.role === 'admin') sub = 'Corporate \u00b7 all dealers';
   if (me.role === 'rsm') sub = 'RSM \u00b7 ' + (me.rsm_name || '');
   $('#dealer-rsm').textContent = sub;
-  if (store.asOf) $('#asof').textContent = (me.role === 'dealer' ? 'You only see your own data. ' : '') + 'Updated ' + store.asOf + '.';
+  const upd = store.uploaded || store.asOf;
+  if (upd) $('#asof').textContent = (me.role === 'dealer' ? 'You only see your own data. ' : '') + 'Last uploaded ' + upd + '.';
 
   const sales = store.sales.map(r => ({ ...r, d: r.reg_date ? new Date(r.reg_date) : null })).filter(r => r.d);
   const latest = sales.length ? sales.reduce((a, b) => a.d > b.d ? a : b).d : new Date();
@@ -1072,25 +1098,27 @@ async function loadOnlineMap(){
   if (Object.keys(onlineMap).length && store && store.stock) render();
 }
 async function renderOnline(){
-  if (me.role === 'dealer') return;
   const myReq = ++onReq, dealer = me.code;
-  $('#on-dealer').textContent = me.name ? ('\u00b7 ' + me.name) : '';
+  const dealerView = (me.role === 'dealer');
+  $('#on-dealer').textContent = (!dealerView && me.name) ? ('\u00b7 ' + me.name) : '';
   const body = $('#on-body');
   body.innerHTML = '<div class="empty">Loading online inventory&hellip;</div>';
   $('#on-status').classList.add('hide'); $('#on-bar-edit').classList.add('hide'); $('#on-meta').textContent = '';
-  const { data: df } = await sb.from('dealer_feeds').select('feed_url').eq('dealer_code', dealer).maybeSingle();
-  if (myReq !== onReq || dealer !== me.code) return;
-  const hasFeed = !!(df && df.feed_url);
-  $('#on-url').value = (df && df.feed_url) || '';
-  $('#on-status').classList.toggle('hide', !hasFeed);
-  $('#on-bar-edit').classList.toggle('hide', hasFeed);
-  $('#on-cancel').classList.add('hide');
-  if (!hasFeed) { body.innerHTML = '<div class="empty">No feed set for this dealer. Paste their MotoHunt feed URL above and hit Save. Not every dealer has one.</div>'; return; }
+  if (!dealerView) {
+    const { data: df } = await sb.from('dealer_feeds').select('feed_url').eq('dealer_code', dealer).maybeSingle();
+    if (myReq !== onReq || dealer !== me.code) return;
+    const hasFeed = !!(df && df.feed_url);
+    $('#on-url').value = (df && df.feed_url) || '';
+    $('#on-status').classList.toggle('hide', !hasFeed);
+    $('#on-bar-edit').classList.toggle('hide', hasFeed);
+    $('#on-cancel').classList.add('hide');
+    if (!hasFeed) { body.innerHTML = '<div class="empty">No feed set for this dealer. Paste their MotoHunt feed URL above and hit Save. Not every dealer has one.</div>'; return; }
+  }
   const { data, error } = await sb.functions.invoke('merchandising', { body: { dealer_code: dealer } });
   if (myReq !== onReq || dealer !== me.code) return;
   if (error) { body.innerHTML = '<div class="empty">Could not load: ' + error.message + '</div>'; return; }
   if (data && data.error) { body.innerHTML = '<div class="empty">' + data.error + '</div>'; return; }
-  if (!data || !data.has_feed) { body.innerHTML = '<div class="empty">No feed set.</div>'; return; }
+  if (!data || !data.has_feed) { body.innerHTML = dealerView ? '<div class="empty">Your store isn\'t connected to an online inventory feed yet. Ask your Piaggio rep to set it up.</div>' : '<div class="empty">No feed set.</div>'; return; }
   drawOnline(data);
 }
 let onData = null, onSort = { col: null, dir: 1 }, onReq = 0;
@@ -1303,12 +1331,13 @@ function actStatus(ts){
   return { k:'dormant', label:'Dormant', cls:'r' };
 }
 async function renderActivity(){
-  if (me.role === 'dealer') return;
   const rows = $('#act-rows'); rows.innerHTML = '<tr><td colspan="6" class="empty">Loading\u2026</td></tr>';
-  const { data, error } = await sb.from('profiles').select('first_name,last_name,email,role,dealer_code,last_seen');
+  const baseq = sb.from('profiles').select('first_name,last_name,email,role,dealer_code,last_seen');
+  const { data, error } = (me.role === 'dealer') ? await baseq.eq('dealer_code', me.code) : await baseq;
   if (error) { rows.innerHTML = '<tr><td colspan="6" class="empty">Could not load activity.</td></tr>'; return; }
   const nameByCode = {}; dealersList.forEach(d => { nameByCode[d.code] = d.name || d.code; });
-  const allowed = new Set(dealersList.map(d => d.code));
+  if (me.role === 'dealer') nameByCode[me.code] = me.name || me.code;
+  const allowed = (me.role === 'dealer') ? new Set([me.code]) : new Set(dealersList.map(d => d.code));
   actUsers = (data || [])
     .filter(u => (u.dealer_code && allowed.has(u.dealer_code)) || (me.role === 'admin' && !u.dealer_code))
     .map(u => ({
@@ -1367,14 +1396,19 @@ $('#act-sort').addEventListener('click', () => {
 });
 
 async function renderAdmin() {
-  if (me.role === 'dealer') return;
-  const storeMode = !!drilledStore;
+  if (!['admin','rsm','dealer'].includes(me.role)) return;
+  const storeCode = drilledStore || (me.role === 'dealer' ? me.code : null);
+  const storeMode = !!storeCode;
+  const isStaff = (me.role !== 'dealer');
   document.getElementById('au-title').textContent = storeMode ? ('Users at ' + (me.name || me.code || '')) : 'Corporate team';
   document.getElementById('au-add-title').textContent = storeMode ? 'Add a user to this store' : 'Grant corporate (all-store) access';
   document.getElementById('au-add-note').textContent = storeMode ? '' : 'This person sees every dealer, like you.';
+  document.getElementById('rsm-panel').classList.toggle('hide', !(storeMode && isStaff));
+  document.getElementById('monthly-panel').classList.toggle('hide', !(!storeMode && isStaff));
+  if (storeMode && isStaff) renderRSMPanel();
   const rows = document.getElementById('au-rows'); rows.innerHTML = '<tr><td colspan="7" class="empty">Loading\u2026</td></tr>';
   let qb = sb.from('profiles').select('id,first_name,last_name,email,phone,position,role,last_seen');
-  qb = storeMode ? qb.eq('dealer_code', drilledStore) : qb.in('role', ['admin','rsm']);
+  qb = storeMode ? qb.eq('dealer_code', storeCode) : qb.in('role', ['admin','rsm']);
   const { data, error } = await qb;
   if (error) { rows.innerHTML = '<tr><td colspan="7" class="empty">Could not load users.</td></tr>'; return; }
   const users = (data || []).sort((a,b)=> ((a.last_name||'')+(a.first_name||'')).localeCompare((b.last_name||'')+(b.first_name||'')));
@@ -1406,11 +1440,11 @@ async function addUser() {
   const pos = document.getElementById('au-pos').value;
   const st = document.getElementById('au-status'); st.style.color = 'var(--muted)';
   if (!email) { st.textContent = 'Email is required.'; return; }
-  const storeMode = !!drilledStore;
-  const body = storeMode
-    ? { email: email, dealer_code: drilledStore, role: 'dealer', first_name: fn, last_name: ln, phone: phone, position: pos }
+  const storeCode = drilledStore || (me.role === 'dealer' ? me.code : null);
+  const body = storeCode
+    ? { email: email, dealer_code: storeCode, role: 'dealer', first_name: fn, last_name: ln, phone: phone, position: pos }
     : { email: email, role: 'admin', first_name: fn, last_name: ln, phone: phone };
-  st.textContent = storeMode ? 'Sending invite\u2026' : 'Granting admin access\u2026';
+  st.textContent = storeCode ? 'Sending invite\u2026' : 'Granting admin access\u2026';
   const { data, error } = await sb.functions.invoke('create-dealer-user', { body: body });
   if (error) { st.style.color = 'var(--accent-d)'; st.textContent = 'Failed: ' + error.message + ' (is the create-dealer-user function deployed?)'; return; }
   if (data && data.error) { st.style.color = 'var(--accent-d)'; st.textContent = 'Failed: ' + data.error; return; }
@@ -1420,6 +1454,43 @@ async function addUser() {
   renderAdmin();
 }
 document.getElementById('au-btn').addEventListener('click', addUser);
+async function renderRSMPanel(){
+  const sel = $('#rsm-sel'); $('#rsm-status').textContent='';
+  const [{ data: contacts }, { data: ov }, { data: eff }] = await Promise.all([
+    sb.from('rsm_contacts').select('name,email').order('name'),
+    sb.from('dealer_rsm_override').select('rsm_name').eq('dealer_code', drilledStore).maybeSingle(),
+    sb.rpc('rsm_for_dealer', { p_code: drilledStore })
+  ]);
+  const e = Array.isArray(eff) ? eff[0] : eff;
+  $('#rsm-meta').textContent = (e && e.email) ? ('routes to ' + (e.rsm_name||'') + ' \u00b7 ' + e.email) : 'no RSM email on file for this store';
+  let opts = '<option value="">Dealer default</option>';
+  (contacts||[]).forEach(c => { opts += '<option value="'+repEsc(c.name)+'">'+repEsc(c.name)+(c.email?'':' (no email)')+'</option>'; });
+  sel.innerHTML = opts; sel.value = (ov && ov.rsm_name) || '';
+}
+async function saveRSM(){
+  const v = $('#rsm-sel').value; const st = $('#rsm-status'); st.style.color='var(--muted)'; st.textContent='Saving\u2026';
+  let err;
+  if (!v) ({ error: err } = await sb.from('dealer_rsm_override').delete().eq('dealer_code', drilledStore));
+  else ({ error: err } = await sb.from('dealer_rsm_override').upsert({ dealer_code: drilledStore, rsm_name: v, updated_at: new Date().toISOString() }));
+  if (err) { st.style.color='var(--accent-d)'; st.textContent='Could not save: '+err.message; return; }
+  st.style.color='var(--green)'; st.textContent='Saved'; renderRSMPanel();
+}
+async function monthlyTest(){
+  const st=$('#me-status'); st.style.color='var(--muted)'; st.textContent='Sending test to '+(me.email||'you')+'\u2026';
+  const { data, error } = await sb.functions.invoke('monthly-dealer-email', { body: { test_email: me.email } });
+  if (error || (data&&data.error)) { st.style.color='var(--accent-d)'; st.textContent='Failed: '+((data&&data.error)||error.message); return; }
+  st.style.color='var(--green)'; st.textContent = 'Test sent to '+me.email+(data&&data.dealer?(' (sample: '+data.dealer+')'):'');
+}
+async function monthlySendAll(){
+  if (!confirm('Send the monthly snapshot to every store\u2019s owner/GM now?')) return;
+  const st=$('#me-status'); st.style.color='var(--muted)'; st.textContent='Sending to all dealers\u2026 this can take a minute';
+  const { data, error } = await sb.functions.invoke('monthly-dealer-email', { body: {} });
+  if (error || (data&&data.error)) { st.style.color='var(--accent-d)'; st.textContent='Failed: '+((data&&data.error)||error.message); return; }
+  st.style.color='var(--green)'; st.textContent = 'Sent '+data.sent+' \u00b7 skipped '+data.skipped_no_recipient+' (no owner/GM email) \u00b7 failed '+data.failed;
+}
+document.getElementById('rsm-save').addEventListener('click', saveRSM);
+document.getElementById('me-test').addEventListener('click', monthlyTest);
+document.getElementById('me-send').addEventListener('click', monthlySendAll);
 document.querySelectorAll('#brand-filters .fbtn').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('#brand-filters .fbtn').forEach(x => x.setAttribute('aria-pressed', 'false'));
   b.setAttribute('aria-pressed', 'true'); avFilter = b.dataset.b; renderAvail();
@@ -1470,13 +1541,14 @@ $('#m-send').addEventListener('click', async () => {
   const rec = { dealer_code: me.code, dealer_name: me.name, description: desc, qty: qty, rsm: me.rsm,
                 rsm_email: rsm.email || null, first_name: fn, last_name: ln, email: email, cell: cell, status: 'Requested' };
   const btn = $('#m-send'); btn.disabled = true; btn.textContent = 'Sending...';
-  const { error } = await sb.from('order_requests').insert(rec);
+  const { data: ins, error } = await sb.from('order_requests').insert(rec).select('id').maybeSingle();
   btn.disabled = false; btn.textContent = 'Send request';
   if (error) { $('#m-err').textContent = 'Could not save: ' + error.message; return; }
-  sendRSMEmail(rec, rsm);
+  let routedTo = '';
+  if (ins && ins.id) { try { const { data: nr } = await sb.functions.invoke('notify-rsm', { body: { request_id: ins.id } }); if (nr && nr.sent) routedTo = nr.rsm_name || 'your RSM'; } catch(e){} }
   requests.push({ qty, description: desc, dealer: me.code, rsm: me.rsm || 'RSM', time: new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) });
   closeModal();
-  toast('Order request sent' + (rsm.email ? (' to ' + me.rsm) : ''));
+  toast('Order request sent' + (routedTo ? (' to ' + routedTo) : ''));
   renderReqs();
   loadData();
 });
