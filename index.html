@@ -139,6 +139,8 @@
   .brandbtn.on{border-color:var(--navy);box-shadow:0 0 0 2px var(--navy)}
   .linklike{appearance:none;border:0;background:none;color:var(--accent);cursor:pointer;font:inherit;padding:0;text-decoration:underline}
   .linklike:hover{color:var(--accent-d)}
+  .chipbtn.sm{padding:4px 9px;font-size:12px}
+  .ei{width:100%;max-width:150px;padding:4px 7px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:13px}
   .onwrap{overflow-x:auto}
   .ontbl{width:100%}
   .ontbl thead th{position:sticky;top:0;background:#fff;z-index:3;box-shadow:inset 0 -1px 0 var(--line)}
@@ -793,11 +795,11 @@ async function loadData() {
     sb.from('stock').select('*').eq('dealer_code', me.code),
     sb.from('orders').select('*').eq('dealer_code', me.code),
     sb.from('availability').select('*'),
-    sb.from('data_meta').select('as_of, uploaded').maybeSingle(),
+    sb.from('data_meta').select('as_of, uploaded, uploaded_name').maybeSingle(),
     sb.from('order_requests').select('*').eq('dealer_code', me.code).order('created_at', { ascending: false })
   ]);
   store = { sales: sales.data || [], stock: stock.data || [], orders: orders.data || [], avail: avail.data || [],
-            asOf: meta.data ? meta.data.as_of : null, uploaded: meta.data ? meta.data.uploaded : null, reqOrders: (reqs && reqs.data) ? reqs.data : [] };
+            asOf: meta.data ? meta.data.as_of : null, uploaded: meta.data ? meta.data.uploaded : null, uploadedName: meta.data ? meta.data.uploaded_name : null, reqOrders: (reqs && reqs.data) ? reqs.data : [] };
   render();
 }
 
@@ -808,8 +810,9 @@ function render() {
   if (me.role === 'admin') sub = 'Corporate \u00b7 all dealers';
   if (me.role === 'rsm') sub = 'RSM \u00b7 ' + (me.rsm_name || '');
   $('#dealer-rsm').textContent = sub;
-  const upd = store.uploaded || store.asOf;
-  if (upd) $('#asof').textContent = (me.role === 'dealer' ? 'You only see your own data. ' : '') + 'Last uploaded ' + upd + '.';
+  const pre = (me.role === 'dealer' ? 'You only see your own data. ' : '');
+  if (store.uploadedName) $('#asof').textContent = pre + 'Latest file: ' + store.uploadedName + (store.asOf ? ' \u00b7 loaded ' + store.asOf : '');
+  else if (store.uploaded || store.asOf) $('#asof').textContent = pre + 'Last uploaded ' + (store.uploaded || store.asOf) + '.';
 
   const sales = store.sales.map(r => ({ ...r, d: r.reg_date ? new Date(r.reg_date) : null })).filter(r => r.d);
   const latest = sales.length ? sales.reduce((a, b) => a.d > b.d ? a : b).d : new Date();
@@ -1406,7 +1409,7 @@ async function renderAdmin() {
   document.getElementById('rsm-panel').classList.toggle('hide', !(storeMode && isStaff));
   document.getElementById('monthly-panel').classList.toggle('hide', !(!storeMode && isStaff));
   if (storeMode && isStaff) renderRSMPanel();
-  const rows = document.getElementById('au-rows'); rows.innerHTML = '<tr><td colspan="7" class="empty">Loading\u2026</td></tr>';
+  const rows = document.getElementById('au-rows'); rows.innerHTML = '<tr><td colspan="7" class="empty">Loading\u2026</td></tr>'; auMap = {};
   let qb = sb.from('profiles').select('id,first_name,last_name,email,phone,position,role,last_seen');
   qb = storeMode ? qb.eq('dealer_code', storeCode) : qb.in('role', ['admin','rsm']);
   const { data, error } = await qb;
@@ -1419,11 +1422,32 @@ async function renderAdmin() {
   users.forEach(u => {
     const name = ((u.first_name || '') + ' ' + (u.last_name || '')).trim() || '\u2014';
     const acc = (u.role || 'dealer'); const accL = acc.charAt(0).toUpperCase() + acc.slice(1);
+    auMap[u.id] = u;
     const rm = (u.id === me.uid) ? '' : '<button class="x" data-rm="' + u.id + '">Remove</button>';
+    const ed = '<button class="chipbtn sm" data-edit="' + u.id + '">Edit</button>';
     rows.insertAdjacentHTML('beforeend',
-      '<tr><td style="font-weight:500;color:var(--ink)">' + name + '</td><td class="mono">' + (u.email || '\u2014') + '</td><td class="mono">' + (u.phone || '\u2014') + '</td><td>' + (u.position || '\u2014') + '</td><td class="mono">' + fmtSeen(u.last_seen) + '</td><td><span class="pill age">' + accL + '</span></td><td class="num">' + rm + '</td></tr>');
+      '<tr id="aurow-' + u.id + '"><td style="font-weight:500;color:var(--ink)">' + name + '</td><td class="mono">' + (u.email || '\u2014') + '</td><td class="mono au-ph">' + (u.phone || '\u2014') + '</td><td class="au-ps">' + (u.position || '\u2014') + '</td><td class="mono">' + fmtSeen(u.last_seen) + '</td><td><span class="pill age">' + accL + '</span></td><td class="num au-act">' + ed + ' ' + rm + '</td></tr>');
   });
   rows.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => deleteUser(b.dataset.rm)));
+  rows.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => editUserRow(b.dataset.edit)));
+}
+let auMap = {};
+function editUserRow(id){
+  const u = auMap[id]; if(!u) return;
+  const tr = document.getElementById('aurow-'+id); if(!tr) return;
+  const q = (v)=> (v||'').replace(/"/g,'&quot;');
+  tr.querySelector('.au-ph').innerHTML = '<input class="ei" id="eph-'+id+'" value="'+q(u.phone)+'" placeholder="Phone">';
+  tr.querySelector('.au-ps').innerHTML = '<input class="ei" id="eps-'+id+'" value="'+q(u.position)+'" placeholder="Position / region">';
+  tr.querySelector('.au-act').innerHTML = '<button class="chipbtn sm" data-save="'+id+'">Save</button> <button class="chipbtn sm" data-cancel="1">Cancel</button>';
+  tr.querySelector('[data-save]').addEventListener('click', ()=>saveUserEdit(id));
+  tr.querySelector('[data-cancel]').addEventListener('click', renderAdmin);
+}
+async function saveUserEdit(id){
+  const phone = document.getElementById('eph-'+id).value.trim();
+  const position = document.getElementById('eps-'+id).value.trim();
+  const { data, error } = await sb.functions.invoke('create-dealer-user', { body:{ action:'update', id:id, phone:phone, position:position } });
+  if (error || (data && data.error)) { toast('Failed: '+((data&&data.error)||error.message)); return; }
+  toast('Saved'); renderAdmin();
 }
 async function deleteUser(id) {
   if (!confirm('Remove this user? They lose access immediately.')) return;
