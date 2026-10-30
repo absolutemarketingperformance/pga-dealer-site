@@ -327,6 +327,7 @@
       <button class="tab storetab" role="tab" aria-selected="false" data-t="av">Available to order</button>
       <button class="tab storetab" role="tab" aria-selected="false" data-t="promo">Promotions</button>
       <button class="tab storetab hide" id="tab-online" role="tab" aria-selected="false" data-t="online">Online</button>
+      <button class="tab storetab hide" id="tab-alloc" role="tab" aria-selected="false" data-t="alloc">Allocation</button>
       <button class="tab hide" id="tab-activity" role="tab" aria-selected="false" data-t="activity">Activity</button>
       <button class="tab hide" id="tab-admin" role="tab" aria-selected="false" data-t="admin">Admin</button>
     </nav>
@@ -438,6 +439,18 @@
           <div><button class="btn-primary" id="au-btn">Send invite</button></div>
           <div id="au-status" style="font-size:13px;color:var(--muted);min-height:18px"></div>
         </div>
+      </div>
+    </section>
+    <section data-p="alloc" class="hide">
+      <div class="panel">
+        <div class="phead"><h3>Allocation <span id="al-month" style="color:var(--muted);font-weight:400;font-size:13px"></span></h3><span class="meta" id="al-meta"></span></div>
+        <div id="al-body" style="padding:14px 16px"><div class="empty">Loading&hellip;</div></div>
+      </div>
+    </section>
+    <section data-p="allocrep" id="sec-allocrep" class="hide">
+      <div class="panel">
+        <div class="phead"><h3>Allocation <span id="ar-month" style="color:var(--muted);font-weight:400;font-size:13px"></span></h3><span class="meta" id="ar-meta"></span></div>
+        <div id="ar-body" style="padding:14px 16px"><div class="empty">Loading&hellip;</div></div>
       </div>
     </section>
     <section data-p="online" class="hide">
@@ -733,6 +746,7 @@ async function start() {
       $('#lock-label').textContent = 'Locked to your dealership';
       $('#kpis').classList.remove('hide');
       document.getElementById('tab-online').classList.remove('hide');
+      document.getElementById('tab-alloc').classList.remove('hide');
       document.getElementById('tab-activity').classList.remove('hide');
       document.getElementById('tab-admin').classList.remove('hide');
       await loadData();
@@ -944,7 +958,7 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   t.setAttribute('aria-selected', 'true');
   document.querySelectorAll('section[data-p]').forEach(s => s.classList.toggle('hide', s.dataset.p !== t.dataset.t));
   if (me.role !== 'dealer') {
-    const storeT = ['perf','inv','ord','av','promo','online'].indexOf(t.dataset.t) >= 0;
+    const storeT = ['perf','inv','ord','av','promo','online','alloc'].indexOf(t.dataset.t) >= 0;
     $('#kpis').classList.toggle('hide', !(storeT && me.code));
     document.getElementById('dealer-name').classList.toggle('hide', !(storeT && me.code));
   }
@@ -953,6 +967,7 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   if (t.dataset.t === 'admin') renderAdmin();
   if (t.dataset.t === 'activity') renderActivity();
   if (t.dataset.t === 'online') renderOnline();
+  if (t.dataset.t === 'alloc') renderAllocation();
   if (t.dataset.t === 'dash') renderDash();
 }));
 
@@ -1045,12 +1060,14 @@ async function renderDash(){
   (function(){ const mx=Math.max(1,...av.map(a=>a.free)); let b=''; av.forEach(x=>{ b+=dbar(x.brand,x.free/mx*100,N(x.free)+' free',BRANDCLR[x.brand]); }); h+=dcard('Available to order by brand',b,{k:'availability',t:'Available to order'}); })();
   (function(){ const pct=en.dealers_total?Math.round((en.dealers_total-en.dormant_90)/en.dealers_total*100):0; h+=dcard('Network engagement','<div class="brow"><div class="blabel">Dealers selling</div><div class="btrack"><div class="bfill" style="width:'+pct+'%;background:var(--green)"></div></div><div class="bval">'+pct+'% of '+N(en.dealers_total)+'</div></div><div class="dnote">'+N(en.dormant_90)+' dealers had no registrations in the last 90 days. '+N(ad.active7)+' of '+N(ad.users)+' portal users were active this week.</div>',{go:'activity'}); })();
   h+='<div class="dcard"><div class="dh"><h4>Online scoreboard</h4><a class="go" data-sb="1">View &rarr;</a></div><div class="db"><div class="dnote">Every dealer ranked by online merchandising: coverage, units not listed, pricing. Worst first. Built from the saved MotoHunt feeds.</div></div></div>';
+  h+='<div class="dcard"><div class="dh"><h4>Allocation</h4><a class="go" data-ar="1">View &rarr;</a></div><div class="db"><div class="dnote">This month\'s unit allocation: brand rollup, every dealer\'s targets and gaps, supply vs need, and what\'s left over to order.</div></div></div>';
   h+='</div>';
   root.innerHTML=h;
   root.querySelectorAll('[data-rk]').forEach(a=>a.addEventListener('click',()=>openReport(a.dataset.rk,a.dataset.rp||null,a.dataset.rt)));
   root.querySelectorAll('[data-go]').forEach(a=>a.addEventListener('click',()=>goTab(a.dataset.go)));
   root.querySelectorAll('[data-pg]').forEach(a=>a.addEventListener('click',openPhotoGaps));
   root.querySelectorAll('[data-sb]').forEach(a=>a.addEventListener('click',openScoreboard));
+  root.querySelectorAll('[data-ar]').forEach(a=>a.addEventListener('click',openAllocRep));
   renderMerchPanel(root);
 }
 async function renderMerchPanel(root){
@@ -1086,6 +1103,76 @@ async function renderMerchPanel(root){
   div.querySelectorAll('[data-sb]').forEach(a=>a.addEventListener('click',openScoreboard));
 }
 
+/* ---- Allocation ---- */
+const ALLOC_BRAND={AP:'Aprilia',MG:'Moto Guzzi',PV:'Piaggio/Vespa'};
+function allocReason(r){ r=(r||'').toLowerCase();
+  if(r.includes('lost sales')) return "You've sold this but have none in stock";
+  if(r.includes('below cover')) return "Below your target stock on a proven seller";
+  if(r.includes('floor build')) return "Building your floor toward your stock target";
+  if(r.includes('sr gt')) return "Every Aprilia dealer carries one SR GT";
+  if(r.includes('growth')) return "Fast-growing model you don't carry yet";
+  if(r.includes('model-year')) return "Prior-year units; refreshing with current";
+  if(r.includes('new dealer')) return "Matched to what you retailed recently";
+  if(r.includes('new model')) return "New 105th-Anniversary model, on predecessor history";
+  if(r.includes('depth')) return "Balancing your depth to the network";
+  return r || '\u2014'; }
+async function renderAllocation(){
+  const body=$('#al-body'); body.innerHTML='<div class="empty">Loading&hellip;</div>';
+  $('#al-month').textContent = me.name?('\u00b7 '+me.name):'';
+  const [{data:meta},{data:dealer},{data:det}] = await Promise.all([
+    sb.from('alloc_meta').select('label').maybeSingle(),
+    sb.from('alloc_dealer').select('*').eq('dealer_code', me.code),
+    sb.from('alloc_detail').select('*').eq('dealer_code', me.code)
+  ]);
+  const label = meta?meta.label:''; $('#al-meta').textContent = label;
+  const dl=dealer||[], dt=det||[];
+  if(!dl.length && !dt.length){ body.innerHTML='<div class="empty">No allocation on file for this store'+(label?(' for '+label):'')+'.</div>'; return; }
+  const sum=(a,k)=>a.reduce((s,x)=>s+(x[k]||0),0);
+  const totalUnits=sum(dl,'month_target'), gap=sum(dl,'stock_gap'), aged=sum(dl,'aged_units'), floor=sum(dl,'units_on_floor');
+  let h='<div class="dkpis" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:4px 0 14px">';
+  h+='<div class="dkpi g"><div class="l">Allocated '+(label||'')+'</div><div class="big">'+totalUnits+'</div><div class="sub">units coming to you</div></div>';
+  h+='<div class="dkpi"><div class="l">On your floor</div><div class="big">'+floor+'</div><div class="sub">current units</div></div>';
+  h+='<div class="dkpi'+(gap<0?' r':'')+'"><div class="l">Stock gap</div><div class="big">'+gap+'</div><div class="sub">vs your target</div></div>';
+  h+='<div class="dkpi'+(aged>0?' r':'')+'"><div class="l">Aged units</div><div class="big">'+aged+'</div><div class="sub">prior-MY / 365+</div></div>';
+  h+='</div>';
+  const ds=dt.slice().sort((a,b)=> (a.brand||'').localeCompare(b.brand||'') || (b.allocated-a.allocated) || (a.model||'').localeCompare(b.model||''));
+  h+='<div class="dcard"><div class="dh"><h4>Your allocation ('+totalUnits+' units)</h4></div><div class="onwrap"><table class="ontbl"><thead><tr><th>Brand</th><th>Model</th><th class="num">Qty</th><th class="num">After</th><th>Why</th></tr></thead><tbody>';
+  h+= ds.length ? ds.map(r=>'<tr><td>'+(ALLOC_BRAND[r.brand]||r.brand)+'</td><td style="font-weight:500">'+r.model+'</td><td class="num mono" style="font-weight:700">'+r.allocated+'</td><td class="num mono">'+(r.after_alloc!=null?r.after_alloc:'')+'</td><td style="color:var(--ink2)">'+allocReason(r.reason)+'</td></tr>').join('') : '<tr><td colspan="5" class="empty">No units allocated this month.</td></tr>';
+  h+='</tbody></table></div></div>';
+  body.innerHTML=h;
+}
+async function openAllocRep(){
+  document.querySelectorAll('.tab').forEach(x=>x.setAttribute('aria-selected','false'));
+  document.querySelectorAll('section[data-p]').forEach(x=>x.classList.add('hide'));
+  document.getElementById('sec-allocrep').classList.remove('hide');
+  if(me.role!=='dealer'){ $('#kpis').classList.add('hide'); document.getElementById('dealer-name').classList.add('hide'); }
+  const body=$('#ar-body'); body.innerHTML='<div class="empty">Loading&hellip;</div>';
+  const [{data:meta},{data:brand},{data:dealer},{data:supply},{data:leftover}] = await Promise.all([
+    sb.from('alloc_meta').select('label').maybeSingle(),
+    sb.from('alloc_brand').select('*'),
+    sb.from('alloc_dealer').select('*'),
+    sb.from('alloc_supply').select('*'),
+    sb.from('alloc_leftover').select('*')
+  ]);
+  $('#ar-month').textContent = meta?('\u00b7 '+meta.label):'';
+  const B=brand||[], D=dealer||[], SU=supply||[], LO=leftover||[];
+  let h='<div class="dkpis" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin:4px 0 14px">';
+  B.forEach(b=>{ h+='<div class="dkpi"><div class="l">'+b.brand+'</div><div class="big">'+b.allocated+'</div><div class="sub">allocated \u00b7 '+b.leftover+' left \u00b7 '+b.units_available+' avail</div></div>'; });
+  h+='</div>';
+  const dsort=D.slice().sort((a,b)=>(b.month_target||0)-(a.month_target||0));
+  h+='<div class="dcard" style="margin-bottom:14px"><div class="dh"><h4>By dealer ('+D.length+')</h4></div><div class="onwrap"><table class="ontbl"><thead><tr><th>Dealer</th><th>Brand</th><th class="num">Allocated</th><th class="num">Target</th><th class="num">Floor</th><th class="num">Gap</th><th class="num">12-mo retail</th></tr></thead><tbody>';
+  h+= dsort.map(r=>{const nm=(dealersList.find(x=>x.code===r.dealer_code)||{}).name||r.dealer_code; const gc=r.stock_gap<0?' style="color:var(--accent-d)"':''; return '<tr class="rowlink" data-dc="'+r.dealer_code+'"><td>'+repEsc(nm)+'</td><td>'+(ALLOC_BRAND[r.brand]||r.brand)+'</td><td class="num mono" style="font-weight:700">'+r.month_target+'</td><td class="num mono">'+r.target_stock+'</td><td class="num mono">'+r.units_on_floor+'</td><td class="num mono"'+gc+'>'+r.stock_gap+'</td><td class="num mono">'+r.retail_12mo+'</td></tr>';}).join('');
+  h+='</tbody></table></div></div>';
+  h+='<div class="dcard" style="margin-bottom:14px"><div class="dh"><h4>Supply vs need</h4></div><div class="onwrap"><table class="ontbl"><thead><tr><th>Brand</th><th>Model</th><th class="num">Avail</th><th class="num">Placed</th><th class="num">Left</th><th class="num">Mo cover</th><th>Assessment</th></tr></thead><tbody>';
+  h+= SU.slice().sort((a,b)=>(b.left_over||0)-(a.left_over||0)).map(r=>{const warn=/oversupply|do not push|oversupplied/i.test(r.assessment||''); return '<tr><td>'+(ALLOC_BRAND[r.brand]||r.brand)+'</td><td>'+r.model+'</td><td class="num mono">'+r.units_available+'</td><td class="num mono">'+r.allocated+'</td><td class="num mono">'+r.left_over+'</td><td class="num mono">'+(r.cover_if_placed!=null?r.cover_if_placed:'')+'</td><td style="'+(warn?'color:var(--accent-d);font-weight:600':'color:var(--ink2)')+'">'+(r.assessment||'')+'</td></tr>';}).join('');
+  h+='</tbody></table></div></div>';
+  const loTot=LO.reduce((s,x)=>s+(x.units_left||0),0);
+  h+='<div class="dcard"><div class="dh"><h4>Left over / still available ('+loTot+' units)</h4></div><div class="onwrap"><table class="ontbl"><thead><tr><th>Brand</th><th>Model</th><th class="num">Units left</th><th class="num">Mo cover</th><th>Why not placed</th></tr></thead><tbody>';
+  h+= LO.slice().sort((a,b)=>(b.units_left||0)-(a.units_left||0)).map(r=>'<tr><td>'+(ALLOC_BRAND[r.brand]||r.brand)+'</td><td>'+r.model+'</td><td class="num mono" style="font-weight:700">'+r.units_left+'</td><td class="num mono">'+(r.cover_if_placed!=null?r.cover_if_placed:'')+'</td><td style="color:var(--ink2)">'+(r.why||'')+'</td></tr>').join('');
+  h+='</tbody></table></div></div>';
+  body.innerHTML=h;
+  body.querySelectorAll('tr[data-dc]').forEach(tr=>tr.addEventListener('click',()=>pickDealer(tr.dataset.dc,'alloc')));
+}
 /* ---- Online merchandising (MotoHunt feed vs PGA stock) ---- */
 let onlineMap = {}, onlineMapDealer = null;
 function normV(v){ return (v || '').toString().trim().toUpperCase().replace(/^US-/, ''); }
