@@ -314,8 +314,8 @@
 
   <div class="wrap">
     <div class="kpis hide" id="kpis">
-      <div class="kpi"><div class="lab">Sold this month</div><div class="val" id="k-mtd">0</div><div class="sub" id="k-mtd-s"></div></div>
-      <div class="kpi"><div class="lab">Sold YTD</div><div class="val" id="k-ytd">0</div><div class="sub">Registrations in 2026</div></div>
+      <div class="kpi"><div class="lab" id="k-mtd-lab">Registered</div><div class="val" id="k-mtd">0</div><div class="sub" id="k-mtd-s"></div></div>
+      <div class="kpi"><div class="lab">Registered YTD</div><div class="val" id="k-ytd">0</div><div class="sub">Warranty registrations in 2026</div></div>
       <div class="kpi"><div class="lab">Units in stock</div><div class="val" id="k-stock">0</div><div class="sub" id="k-stock-s"></div></div>
       <div class="kpi"><div class="lab">Open orders</div><div class="val" id="k-orders">0</div><div class="sub">In the pipeline now</div></div>
     </div>
@@ -731,9 +731,12 @@ async function start() {
     try { const r = await fetch('img/bikes.json'); if (r.ok) { const extra = await r.json(); const have = new Set(BIKES.map(x => x.f)); extra.forEach(e => { const f = (typeof e === 'string') ? e : (e && e.f); if (f && !have.has(f)) { BIKES.push(bikeEntry(f)); have.add(f); } }); } } catch(e){}
     const { data: { user: meUser } } = await sb.auth.getUser();
     me.uid = meUser.id; me.email = meUser.email;
-    const prof = await sb.from('profiles').select('role, dealer_code, rsm_name').eq('id', meUser.id).maybeSingle();
+    const prof = await sb.from('profiles').select('role, dealer_code, rsm_name, first_name, last_name, phone').eq('id', meUser.id).maybeSingle();
     me.role = (prof.data && prof.data.role) || 'dealer';
     me.rsm_name = prof.data ? prof.data.rsm_name : null;
+    me.first = prof.data ? (prof.data.first_name || '') : '';
+    me.last = prof.data ? (prof.data.last_name || '') : '';
+    me.phone = prof.data ? (prof.data.phone || '') : '';
     sb.rpc('touch_last_seen');
 
     try { const rs = await sb.from('rsms').select('*'); (rs.data || []).forEach(r => { rsmMap[cleanRsm(r.name)] = r; }); } catch(e){}
@@ -772,6 +775,9 @@ async function start() {
       document.getElementById('home-btn').classList.remove('hide');
       $('#lock-label').textContent = me.role === 'admin' ? 'Corporate view \u00b7 all dealers' : ('RSM view \u00b7 ' + (me.rsm_name || 'your region'));
       document.getElementById('dealer-name').classList.add('hide');
+      try { const dm = await sb.from('data_meta').select('uploaded, as_of, uploaded_name').maybeSingle();
+        if (dm.data) { const nm = dm.data.uploaded_name, dt = dm.data.uploaded || dm.data.as_of;
+          $('#asof').textContent = (nm ? 'Latest file: ' + nm : 'Data loaded') + (dt ? ' \u00b7 loaded ' + dt : ''); } } catch(e){}
       goTab('dash');
     }
     renderPromos();
@@ -842,12 +848,18 @@ function render() {
   const sales = store.sales.map(r => ({ ...r, d: r.reg_date ? new Date(r.reg_date) : null })).filter(r => r.d);
   const latest = sales.length ? sales.reduce((a, b) => a.d > b.d ? a : b).d : new Date();
   const mtd = sales.filter(r => monthKey(r.d) === monthKey(latest));
+  const now = new Date();
+  const isCurMonth = sales.length && monthKey(latest) === monthKey(now);
+  const moName = latest.toLocaleString('en-US', { month: 'long' });
+  $('#k-mtd-lab').textContent = sales.length ? ('Registered · ' + moName) : 'Registered';
   $('#k-mtd').textContent = mtd.length;
   $('#k-ytd').textContent = store.sales.length;
   const byBrand = {};
   mtd.forEach(r => { const b = splitBrand(r.brand, r.model); byBrand[b] = (byBrand[b] || 0) + 1; });
   const top = Object.entries(byBrand).sort((a, b) => b[1] - a[1])[0];
-  $('#k-mtd-s').innerHTML = top ? ('Top brand <b>' + top[0] + '</b> &middot; ' + top[1] + ' units') : 'No registrations yet';
+  const topTxt = top ? ('Top brand <b>' + top[0] + '</b> &middot; ' + top[1] + ' units') : 'No registrations yet';
+  const lagTxt = (sales.length && !isCurMonth) ? ' &middot; <span style="color:var(--muted)">latest PGA registrations, retail runs ahead</span>' : '';
+  $('#k-mtd-s').innerHTML = topTxt + lagTxt;
   $('#perf-meta').textContent = mtd.length + ' units registered';
 
   const green = store.stock.filter(u => (u.age_days || 0) <= 120).length;
@@ -1047,14 +1059,38 @@ async function renderDash(){
   const N=x=>(x==null?'\u2014':Number(x).toLocaleString());
   const money=x=>'$'+Number(x||0).toLocaleString();
   const lastMY=(new Date().getFullYear()-1);
-  let h='<div class="dkpis">';
+  /* ---- data freshness banner: real file identifier + how stale ---- */
+  const meta = m.meta || {};
+  const upName = meta.uploaded_name || '', upDate = meta.uploaded || meta.as_of || null, regThrough = meta.reg_through || null;
+  const dSince = d => { if(!d) return null; const t = new Date(d + 'T00:00:00'); return Math.floor((Date.now() - t.getTime())/864e5); };
+  const upAge = dSince(upDate);
+  let fCls = 'g';
+  if (upAge == null) fCls = 'r'; else if (upAge <= 1) fCls = 'g'; else if (upAge <= 3) fCls = 'y'; else fCls = 'r';
+  const fColor = fCls==='g'?'var(--green)':(fCls==='y'?'var(--amber)':'var(--accent-d)');
+  const fBg = fCls==='g'?'var(--green-bg)':(fCls==='y'?'#fdf3d8':'#fde9e7');
+  const rel = upAge==null?'':(upAge===0?'today':(upAge===1?'yesterday':upAge+' days ago'));
+  const ageTxt = upAge==null?'never loaded':('loaded '+(upDate||'')+' · '+rel);
+  const warn = (fCls==='r' && upAge!=null) ? ' <b>No new file in '+upAge+' days — ask PGA corporate to drop today’s export in the Drive folder.</b>' : '';
+  const fresh = '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;padding:11px 15px;margin-bottom:14px;border-radius:10px;background:'+fBg+';border:1px solid '+fColor+'55">'
+    + '<span style="width:9px;height:9px;border-radius:50%;background:'+fColor+';flex:none"></span>'
+    + '<span style="font-weight:700;color:var(--navy)">'+(upName?repEsc(upName):'No file loaded')+'</span>'
+    + '<span style="color:var(--muted)">'+ageTxt+warn+'</span>'
+    + '<span style="margin-left:auto;color:var(--muted);font-size:13px">Registrations reported through <b style="color:var(--navy)">'+(regThrough||'—')+'</b></span>'
+    + '</div>';
+  let h=fresh+'<div class="dkpis">';
   h+=dkpi('Units in stock',N(st.total),'<span style="color:var(--green)">'+N(st.green)+' fresh</span> &middot; <span style="color:var(--amber)">'+N(st.yellow)+' aging</span> &middot; <span style="color:var(--accent-d)">'+N(st.red)+' aged</span>',{k:'stock',t:'All units in stock'});
   h+=dkpi('Prior-year units',N(st.prior_my_units),'MY'+lastMY+' &amp; older still on floors',{k:'stock',p:'prior',t:'Prior-year units (MY'+lastMY+' and older)'},'r');
   if(st.value_known>0) h+=dkpi('Aged 365+ value',money(st.aged_value),'across '+N(st.red)+' units',{k:'stock',p:'aged',t:'Aged inventory (365+ days)'},'r');
   else h+=dkpi('Aged 365+ units',N(st.red),'over 365 days &middot; $ value after next data load',{k:'stock',p:'aged',t:'Aged inventory (365+ days)'},'r');
   const _pm=sl.prev_mtd||0, _dm=(sl.this_month||0)-_pm;
   const _cmp=_pm>0?('<span style="color:'+(_dm>=0?'var(--green)':'var(--accent-d)')+'">'+(_dm>=0?'\u25B4':'\u25BE')+' '+Math.abs(Math.round(_dm/_pm*100))+'%</span> vs last month &middot; '):'';
-  h+=dkpi('Sold this month',N(sl.this_month),_cmp+N(sl.ytd)+' YTD',{k:'sales',p:'thismonth',t:'Registrations this month'});
+  const _lfm=sl.last_full_month||0;
+  const _partial = _lfm > 50 && (sl.this_month||0) < _lfm*0.25;
+  let _soldSub;
+  if (_partial) { const _lm=new Date(); _lm.setMonth(_lm.getMonth()-1);
+    _soldSub = _lm.toLocaleString('en-US',{month:'short'})+' had '+N(_lfm)+' &middot; regs reported through '+(regThrough||'\u2014')+' &middot; '+N(sl.ytd)+' YTD'; }
+  else { _soldSub = _cmp+N(sl.ytd)+' YTD'; }
+  h+=dkpi('Sold this month',N(sl.this_month),_soldSub,{k:'sales',p:'thismonth',t:'Registrations this month'});
   h+=dkpi('Orders pending',N(or.pending_approval),N(or.backorder)+' units in backorder',{k:'orders',p:'pending',t:'Orders pending approval'});
   h+=dkpi('Never logged in',N(ad.never),N(ad.users)+' users &middot; '+N(ad.active30)+' active in 30d',{go:'activity'},(ad.never>0?'r':'g'));
   h+='</div><div class="dgrid">';
@@ -1648,6 +1684,10 @@ function openModal(a) {
   $('#m-brand').textContent = brandLabel(a.brand, a.description || a.model);
   $('#m-title').textContent = a.description || a.model || '';
   $('#m-qty').value = 1;
+  $('#m-fn').value = me.first || '';
+  $('#m-ln').value = me.last || '';
+  $('#m-email').value = me.email || '';
+  $('#m-cell').value = me.phone || '';
   $('#m-dcode').value = me.code || '';
   $('#m-dname').value = me.name || '';
   $('#m-err').textContent = '';
@@ -1657,7 +1697,7 @@ function openModal(a) {
   if (rsm.phone) parts.push(rsm.phone);
   $('#m-route').innerHTML = '<b>' + (parts[0]) + '</b>' + (parts.length > 1 ? ' &middot; ' + parts.slice(1).join(' &middot; ') : '') + '<br>' + (me.name || '') + ' (' + (me.code || '') + ')';
   scrim.classList.add('on');
-  setTimeout(() => $('#m-fn').focus(), 50);
+  setTimeout(() => $((me.first ? '#m-qty' : '#m-fn')).focus(), 50);
 }
 function closeModal(){ scrim.classList.remove('on'); pending = null; }
 $('#m-cancel').addEventListener('click', closeModal);
