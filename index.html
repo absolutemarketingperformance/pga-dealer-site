@@ -1512,11 +1512,13 @@ async function renderAdmin() {
     auMap[u.id] = u;
     const rm = (u.id === me.uid) ? '' : '<button class="x" data-rm="' + u.id + '">Remove</button>';
     const ed = '<button class="chipbtn sm" data-edit="' + u.id + '">Edit</button>';
+    const rp = (u.id === me.uid) ? '' : '<button class="chipbtn sm" data-reset="' + u.id + '">Reset password</button>';
     rows.insertAdjacentHTML('beforeend',
-      '<tr id="aurow-' + u.id + '"><td style="font-weight:500;color:var(--ink)">' + name + '</td><td class="mono">' + (u.email || '\u2014') + '</td><td class="mono au-ph">' + (u.phone || '\u2014') + '</td><td class="au-ps">' + (u.position || '\u2014') + '</td><td class="mono">' + fmtSeen(u.last_seen) + '</td><td><span class="pill age">' + accL + '</span></td><td class="num au-act">' + ed + ' ' + rm + '</td></tr>');
+      '<tr id="aurow-' + u.id + '"><td style="font-weight:500;color:var(--ink)">' + name + '</td><td class="mono">' + (u.email || '\u2014') + '</td><td class="mono au-ph">' + (u.phone || '\u2014') + '</td><td class="au-ps">' + (u.position || '\u2014') + '</td><td class="mono">' + fmtSeen(u.last_seen) + '</td><td><span class="pill age">' + accL + '</span></td><td class="num au-act">' + ed + ' ' + rp + ' ' + rm + '</td></tr>');
   });
   rows.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => deleteUser(b.dataset.rm)));
   rows.querySelectorAll('[data-edit]').forEach(b => b.addEventListener('click', () => editUserRow(b.dataset.edit)));
+  rows.querySelectorAll('[data-reset]').forEach(b => b.addEventListener('click', () => resetUserPw(b.dataset.reset, (auMap[b.dataset.reset]||{}).email)));
 }
 let auMap = {};
 function editUserRow(id){
@@ -1555,14 +1557,33 @@ async function addUser() {
   const body = storeCode
     ? { email: email, dealer_code: storeCode, role: 'dealer', first_name: fn, last_name: ln, phone: phone, position: pos }
     : { email: email, role: 'admin', first_name: fn, last_name: ln, phone: phone };
-  st.textContent = storeCode ? 'Sending invite\u2026' : 'Granting admin access\u2026';
+  st.textContent = storeCode ? 'Creating account\u2026' : 'Creating admin account\u2026';
   const { data, error } = await sb.functions.invoke('create-dealer-user', { body: body });
   if (error) { st.style.color = 'var(--accent-d)'; st.textContent = 'Failed: ' + error.message + ' (is the create-dealer-user function deployed?)'; return; }
   if (data && data.error) { st.style.color = 'var(--accent-d)'; st.textContent = 'Failed: ' + data.error; return; }
-  st.style.color = 'var(--green)'; st.textContent = 'Invite sent to ' + email + '. They set their own password from the email.';
   document.getElementById('au-fn').value = ''; document.getElementById('au-ln').value = '';
   document.getElementById('au-email').value = ''; document.getElementById('au-phone').value = '';
+  if (data && data.temp_password) { showCreds(st, email, data.temp_password, data.emailed); }
+  else if (data && data.existed) { st.style.color = 'var(--muted)'; st.textContent = 'That email already had an account. Contact details updated. Use Reset password on their row to issue new login details.'; }
+  else { st.style.color = 'var(--green)'; st.textContent = 'Done.'; }
   renderAdmin();
+}
+function showCreds(el, email, pw, emailed){
+  el.style.color = 'var(--ink)';
+  el.innerHTML = '<div style=\"border:1px solid var(--line);background:#f6f8fb;border-radius:8px;padding:10px 12px;margin-top:4px\">'
+    + '<div style=\"font-weight:600;color:var(--green);margin-bottom:4px\">\u2713 Account ready for ' + email + '</div>'
+    + '<div style=\"font-size:13px;color:var(--ink2)\">Temporary password: <span style=\"font-family:monospace;font-weight:700;font-size:14px;color:var(--ink)\">' + pw + '</span> '
+    + '<button class=\"chipbtn sm\" id=\"cred-copy\" style=\"margin-left:6px\">Copy</button></div>'
+    + '<div style=\"font-size:12px;color:var(--muted);margin-top:4px\">' + (emailed ? 'Emailed to them. ' : 'Share this with them. ') + 'They can change it under Account after signing in.</div></div>';
+  const cb = document.getElementById('cred-copy');
+  if (cb) cb.addEventListener('click', () => { navigator.clipboard && navigator.clipboard.writeText(email + '  /  ' + pw); cb.textContent = 'Copied'; });
+}
+async function resetUserPw(id, email){
+  if (!confirm('Issue a new temporary password for ' + (email||'this user') + '? Their current password will stop working.')) return;
+  const { data, error } = await sb.functions.invoke('create-dealer-user', { body: { action: 'reset_password', id: id } });
+  const st = document.getElementById('au-status');
+  if (error || (data && data.error)) { st.style.color='var(--accent-d)'; st.textContent = 'Reset failed: ' + ((data&&data.error)||error.message); return; }
+  showCreds(st, email || 'user', data.temp_password, data.emailed);
 }
 document.getElementById('au-btn').addEventListener('click', addUser);
 async function renderRSMPanel(){
