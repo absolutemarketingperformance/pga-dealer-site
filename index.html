@@ -739,16 +739,27 @@ async function start() {
     try { const rs = await sb.from('rsms').select('*'); (rs.data || []).forEach(r => { rsmMap[cleanRsm(r.name)] = r; }); } catch(e){}
 
     if (me.role === 'dealer') {
-      const deal = await sb.from('dealers').select('*').maybeSingle();
-      if (deal.data) { me.code = deal.data.code; me.name = deal.data.name; me.rsm = cleanRsm(deal.data.rsm); }
-      else { me.code = prof.data ? prof.data.dealer_code : null; me.name = me.code; }
-      $('#dealer-combo').classList.add('hide');
-      $('#lock-label').textContent = 'Locked to your dealership';
+      const deal = await sb.from('dealers').select('code,name,rsm').order('name');
+      const stores = deal.data || [];
+      me.stores = stores.map(s => s.code);
+      const primary = prof.data ? prof.data.dealer_code : null;
+      const active = stores.find(s => s.code === primary) || stores[0] || null;
+      if (active) { me.code = active.code; me.name = active.name; me.rsm = cleanRsm(active.rsm); }
+      else { me.code = primary; me.name = primary; me.stores = primary ? [primary] : []; }
       $('#kpis').classList.remove('hide');
       document.getElementById('tab-online').classList.remove('hide');
       document.getElementById('tab-alloc').classList.remove('hide');
       document.getElementById('tab-activity').classList.remove('hide');
       document.getElementById('tab-admin').classList.remove('hide');
+      if (stores.length > 1) {
+        dealersList = stores;
+        $('#dealer-combo').classList.remove('hide');
+        $('#lock-label').textContent = 'Your dealerships · ' + stores.length + ' stores';
+        document.getElementById('dealer-name').classList.remove('hide');
+      } else {
+        $('#dealer-combo').classList.add('hide');
+        $('#lock-label').textContent = 'Locked to your dealership';
+      }
       await loadData();
     } else {
       const list = await sb.from('dealers').select('code,name,rsm').order('name');
@@ -1423,11 +1434,12 @@ function actStatus(ts){
 async function renderActivity(){
   const rows = $('#act-rows'); rows.innerHTML = '<tr><td colspan="6" class="empty">Loading\u2026</td></tr>';
   const baseq = sb.from('profiles').select('first_name,last_name,email,role,dealer_code,last_seen');
-  const { data, error } = (me.role === 'dealer') ? await baseq.eq('dealer_code', me.code) : await baseq;
+  const myStores = (me.stores && me.stores.length) ? me.stores : [me.code];
+  const { data, error } = (me.role === 'dealer') ? await baseq.in('dealer_code', myStores) : await baseq;
   if (error) { rows.innerHTML = '<tr><td colspan="6" class="empty">Could not load activity.</td></tr>'; return; }
   const nameByCode = {}; dealersList.forEach(d => { nameByCode[d.code] = d.name || d.code; });
   if (me.role === 'dealer') nameByCode[me.code] = me.name || me.code;
-  const allowed = (me.role === 'dealer') ? new Set([me.code]) : new Set(dealersList.map(d => d.code));
+  const allowed = (me.role === 'dealer') ? new Set(myStores) : new Set(dealersList.map(d => d.code));
   actUsers = (data || [])
     .filter(u => (u.dealer_code && allowed.has(u.dealer_code)) || (me.role === 'admin' && !u.dealer_code))
     .map(u => ({
