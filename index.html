@@ -970,8 +970,9 @@ document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () =>
   document.querySelectorAll('section[data-p]').forEach(s => s.classList.toggle('hide', s.dataset.p !== t.dataset.t));
   if (me.role !== 'dealer') {
     const storeT = ['perf','inv','ord','av','promo','online','alloc'].indexOf(t.dataset.t) >= 0;
+    const showName = !!me.code && t.dataset.t !== 'dash';
     $('#kpis').classList.toggle('hide', !(storeT && me.code));
-    document.getElementById('dealer-name').classList.toggle('hide', !(storeT && me.code));
+    document.getElementById('dealer-name').classList.toggle('hide', !showName);
   }
   if (t.dataset.t === 'promo') renderPromos();
   if (t.dataset.t === 'dash') drilledStore = null;
